@@ -177,7 +177,7 @@ impl Token {
 
 #[derive(Debug, Display, Clone, Copy, PartialEq)]
 #[display(fmt = "{}..{}", start, end)]
-/// Custom span for storing the position of a token in the source string
+/// Custom span for storing the position of a token or AST node in the source string
 pub struct Span {
     /// The start of the span (inclusive)
     pub start: usize,
@@ -211,8 +211,8 @@ impl Index<Span> for str {
 /// A wrapper around `logos::SpannedIter` to map to our custom `Token` type and also to map `None`
 /// to `TK::Eof` to allow for easier Eof handling while parsing
 pub struct Lexer<'input> {
-    /// This is here so the EOF `Token` can have a correct span
-    input: &'input str,
+    /// The length of the input string so the EOF `Token` can have a correct span
+    length: usize,
     logos: SpannedIter<'input, TK>,
     eof: bool,
 }
@@ -221,7 +221,7 @@ impl<'input> Lexer<'input> {
     /// Create a new `Lexer` that lazily lexes `input`
     pub fn new(input: &'input str) -> Self {
         Self {
-            input,
+            length: input.len(),
             logos: TK::lexer(input).spanned(),
             eof: false,
         }
@@ -238,13 +238,10 @@ impl<'input> Iterator for Lexer<'input> {
                 span: span.into(),
             }),
             None if self.eof => None,
-            None => {
-                let len = self.input.len();
-                Some(Token {
-                    kind: TK::Eof,
-                    span: (len..len).into(),
-                })
-            }
+            None => Some(Token {
+                kind: TK::Eof,
+                span: (self.length..self.length).into(),
+            }),
         }
     }
 }
