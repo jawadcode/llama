@@ -9,6 +9,8 @@ pub enum SyntaxError {
     UnexpectedEof(Token),
 }
 
+pub type ParseResult<T> = Result<T, SyntaxError>;
+
 impl SyntaxError {
     fn report(&self, filename: String, file: &str) {
         match self {
