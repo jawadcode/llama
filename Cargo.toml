@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 logos = "0.12"
 derive_more = "0.99"
+ariadne = "0.1"

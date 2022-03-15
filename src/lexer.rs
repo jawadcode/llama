@@ -4,6 +4,7 @@ use derive_more::Display;
 use logos::{Logos, Skip, SpannedIter};
 
 #[derive(Debug, Display, Clone, Copy, Logos, PartialEq)]
+// The *T*oken *K*inds
 pub enum TK {
     /* KEYWORDS */
     #[token("fun")]
@@ -158,7 +159,7 @@ fn comment_lexer(lex: &mut logos::Lexer<TK>) -> Skip {
 }
 
 #[derive(Debug, Display, Clone, Copy, PartialEq)]
-#[display(fmt = "{}", span)]
+#[display(fmt = "{}", kind)]
 /// Holds the kind of token for parsing, and the span to extract it's text from the source code
 pub struct Token {
     /// The type of token
