@@ -65,13 +65,13 @@ pub enum TK {
     Add,
     #[token("-")]
     #[display(fmt = "-")]
-    Minus,
+    Sub,
     #[token("*")]
     #[display(fmt = "*")]
-    Multiply,
+    Mul,
     #[token("/")]
     #[display(fmt = "/")]
-    Divide,
+    Div,
     /* COMPARISON OPERATORS */
     #[token("<")]
     #[display(fmt = "<")]
@@ -87,7 +87,7 @@ pub enum TK {
     GreatEq,
     #[token("==")]
     #[display(fmt = "==")]
-    Equals,
+    Eq,
     #[token("!=")]
     #[display(fmt = "!=")]
     NotEq,

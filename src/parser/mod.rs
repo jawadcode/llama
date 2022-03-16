@@ -5,13 +5,16 @@ use crate::lexer::{Lexer, Token, TK};
 use self::error::{ParseResult, SyntaxError};
 
 pub mod error;
+pub mod expr;
 
+/// The parser and all associated state
 pub struct Parser<'input> {
     input: &'input str,
     lexer: Peekable<Lexer<'input>>,
 }
 
 impl<'input> Parser<'input> {
+    /// Create a new parser that operates on the given `input`
     pub fn new(input: &'input str) -> Self {
         Self {
             input,
@@ -60,6 +63,11 @@ impl<'input> Parser<'input> {
         } else {
             Ok(token)
         }
+    }
+
+    /// Advance without checking anything
+    fn advance(&mut self) {
+        self.lexer.next().unwrap();
     }
 
     /// Peek the next token and check if its kind is `kind`

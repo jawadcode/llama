@@ -1,11 +1,12 @@
 use ariadne::{sources, Label, Report, ReportKind};
 
-use crate::lexer::Token;
+use crate::{ast::Spanned, lexer::Token};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyntaxError {
     UnexpectedToken { expected: String, got: Token },
     InvalidLiteral(Token),
+    InvalidEscSeq(Spanned<char>),
     UnexpectedEof(Token),
 }
 
@@ -27,7 +28,15 @@ impl SyntaxError {
                     .with_message("Invalid literal")
                     .with_label(
                         Label::new((filename.clone(), t.span.into()))
-                            .with_message(format!("Invalid literal '{t}'")),
+                            .with_message(format!("Invalid literal '{}'", t.text(file))),
+                    )
+            }
+            SyntaxError::InvalidEscSeq(c) => {
+                Report::build(ReportKind::Error, &filename, c.span.start)
+                    .with_message("Invalid escape sequence")
+                    .with_label(
+                        Label::new((filename.clone(), c.span.into()))
+                            .with_message(format!("Invalid escape sequence '\\{}'", c.node)),
                     )
             }
             SyntaxError::UnexpectedEof(t) => {

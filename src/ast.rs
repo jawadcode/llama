@@ -4,11 +4,11 @@ use derive_more::Display;
 
 use crate::lexer::Span;
 
-type SpanExpr = Spanned<Expr>;
-type SpanStmt = Spanned<Stmt>;
+pub type SpanExpr = Spanned<Expr>;
+pub type SpanStmt = Spanned<Stmt>;
 
-type Boxpr = Box<SpanExpr>;
-type Exprs = Vec<SpanExpr>;
+pub type Boxpr = Box<SpanExpr>;
+pub type Exprs = Vec<SpanExpr>;
 
 /// Generic struct that allows you to attach a `Span` to `T`
 #[derive(Debug, Display, Clone, PartialEq)]
@@ -82,9 +82,9 @@ pub enum Lit {
 }
 
 #[derive(Debug, Display, Clone, PartialEq)]
-#[display(fmt = "({} {})", pattern, expr)]
+#[display(fmt = "([{}] {})", "join(patterns)", expr)]
 pub struct MatchArm {
-    pub pattern: Lit,
+    pub patterns: Exprs,
     pub expr: SpanExpr,
 }
 
