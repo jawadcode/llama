@@ -238,10 +238,13 @@ impl<'input> Iterator for Lexer<'input> {
                 span: span.into(),
             }),
             None if self.eof => None,
-            None => Some(Token {
-                kind: TK::Eof,
-                span: (self.length..self.length).into(),
-            }),
+            None => {
+                self.eof = true;
+                Some(Token {
+                    kind: TK::Eof,
+                    span: (self.length..self.length).into(),
+                })
+            }
         }
     }
 }
