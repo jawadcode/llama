@@ -6,6 +6,10 @@ Llama is a WIP, high-level, functional programming language
 
 - [x] Lexer
 - [ ] Parser
+    - [ ] Expression parser
+    - [ ] Statement parser
 - [ ] Typechecker
-- [ ] Bytecode compiler
-- [ ] Bytecode VM
+    - [ ] Basic hindley milner (no polymorphic types)
+- [ ] Basic stack based bytecode
+    - [ ] Compiler
+    - [ ] VM
