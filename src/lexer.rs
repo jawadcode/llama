@@ -38,9 +38,6 @@ pub enum TK {
     #[regex(r"([A-Za-z]|_)([A-Za-z]|_|\d)*")]
     #[display(fmt = "identifier")]
     Ident,
-    #[token("()")]
-    #[display(fmt = "()")]
-    Unit,
     #[token("true")]
     #[display(fmt = "true")]
     True,

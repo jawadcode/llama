@@ -9,7 +9,7 @@ use super::{
 };
 
 const BASIC_EXPR_TOKENS: [TK; 7] = [
-    TK::Unit,
+    TK::LParen,
     TK::True,
     TK::False,
     TK::IntLit,
@@ -77,8 +77,7 @@ impl Parser<'_> {
     /// Parse an expression with an initial binding power of `bp`
     fn parse_expr(&mut self, bp: u8) -> ParseResult<SpanExpr> {
         let mut lhs = match self.peek() {
-            lit @ TK::Unit
-            | lit @ TK::True
+            lit @ TK::True
             | lit @ TK::False
             | lit @ TK::IntLit
             | lit @ TK::FloatLit
@@ -203,7 +202,6 @@ impl Parser<'_> {
                 lexical::parse::<i64, _>(text).map_err(|_| SyntaxError::InvalidLiteral(token))?,
             ),
             b @ TK::True | b @ TK::False => Lit::Bool(b == TK::True),
-            TK::Unit => Lit::Unit,
             _ => unreachable!(),
         };
 
@@ -324,8 +322,9 @@ impl Parser<'_> {
     /// Parse basic expression
     fn parse_basic_expr(&mut self, peeked: TK) -> ParseResult<SpanExpr> {
         match peeked {
-            lit @ TK::Unit
-            | lit @ TK::True
+            TK::LParen => self.parse_unit(),
+
+            lit @ TK::True
             | lit @ TK::False
             | lit @ TK::IntLit
             | lit @ TK::FloatLit
@@ -371,10 +370,28 @@ impl Parser<'_> {
     /// Parse grouping
     fn parse_group(&mut self) -> ParseResult<SpanExpr> {
         let l_token = self.next().unwrap();
+        if self.at(TK::RParen) {
+            let r_token = self.next().unwrap();
+            return Ok(spanned!(
+                l_token.span.start..r_token.span.end,
+                Expr::Lit(Lit::Unit)
+            ));
+        }
+
         let expr = self.expr()?;
         let r_token = self.consume_next(TK::RParen)?;
 
         Ok(spanned!(l_token.span.start..r_token.span.end, expr.node))
+    }
+
+    /// Parse unit type
+    fn parse_unit(&mut self) -> ParseResult<SpanExpr> {
+        let l_token = self.next().unwrap();
+        let r_token = self.consume_next(TK::RParen)?;
+        Ok(spanned!(
+            l_token.span.start..r_token.span.end,
+            Expr::Lit(Lit::Unit)
+        ))
     }
 
     /// Parse prefix operator expression
@@ -463,6 +480,16 @@ mod tests {
             "add(69 + 420, add(57893, 43280))",
             "(call add :args [(+ 69 420) (call add :args [57893 43280])])"
         );
+    }
+
+    #[test]
+    fn parse_empty_function_call() {
+        assert_expr!("hello()", "(call hello :args [])");
+    }
+
+    #[test]
+    fn parse_trailing_comma_function_call() {
+        assert_expr!("add(1, 2,)", "(call add :args [1 2])");
     }
 
     #[test]
