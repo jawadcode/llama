@@ -49,7 +49,7 @@ impl SyntaxError {
             }
         }
         .finish()
-        .print(sources(vec![(filename, file)]))
+        .eprint(sources(vec![(filename, file)]))
         .unwrap()
     }
 }
@@ -60,7 +60,7 @@ mod tests {
 
     use super::SyntaxError;
 
-    #[test]
+    // Not a test because you're not supposed to do output stuff during tests apparently
     fn unexpected_token() {
         let filename = "testing.lm".to_string();
         let file = r"fun main() hello do

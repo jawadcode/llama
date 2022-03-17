@@ -2,7 +2,7 @@ use std::fmt;
 
 use derive_more::Display;
 
-use crate::lexer::Span;
+use crate::lexer::{Span, TK};
 
 pub type SpanExpr = Spanned<Expr>;
 pub type SpanStmt = Spanned<Stmt>;
@@ -30,6 +30,12 @@ pub enum Expr {
     /// Identifier
     #[display(fmt = "{}", _0)]
     Ident(String),
+    /// Unary operator expression
+    #[display(fmt = "({} {})", op, operand)]
+    UnOp { op: TK, operand: Boxpr },
+    /// Binary operator expression
+    #[display(fmt = "({} {} {})", op, lhs, rhs)]
+    BinOp { op: TK, lhs: Boxpr, rhs: Boxpr },
     /// If expression
     #[display(fmt = "(if :cond {} :then {} :else {})", cond, then, elss)]
     If {
@@ -43,6 +49,9 @@ pub enum Expr {
     /// Block expression
     #[display(fmt = "(block [{}])", "join(exprs)")]
     Block { exprs: Exprs },
+    /// Function call
+    #[display(fmt = "(call {} :args [{}])", fun, "join(args)")]
+    Call { fun: Boxpr, args: Exprs },
     /// Anonymous function
     #[display(fmt = "(fn {})", _0)]
     Closure(Function),

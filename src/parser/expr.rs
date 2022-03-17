@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Boxpr, Expr, Function, Lit, MatchArm, SpanExpr},
+    ast::{Expr, Function, Lit, MatchArm, SpanExpr},
     lexer::{Token, TK},
 };
 
@@ -8,13 +8,14 @@ use super::{
     Parser,
 };
 
-const LITERAL_TOKENS: [TK; 6] = [
+const BASIC_EXPR_TOKENS: [TK; 7] = [
     TK::Unit,
     TK::True,
     TK::False,
     TK::IntLit,
     TK::FloatLit,
     TK::StringLit,
+    TK::Ident,
 ];
 
 /// To obtain the binding power(s) of an operator
@@ -88,14 +89,107 @@ impl Parser<'_> {
             TK::If => self.parse_if(),
             TK::Match => self.parse_match(),
             TK::Do => self.parse_block(),
-            TK::LeftParen => self.parse_group(),
+            TK::LParen => self.parse_group(),
+
+            op @ TK::Sub | op @ TK::Not => self.parse_prefix_op(op),
             _ => todo!(),
         }?;
+
+        loop {
+            if self.at(TK::LParen) {
+                lhs = self.parse_fncall(lhs)?;
+            }
+
+            let op = match self.peek() {
+                op @ TK::Add
+                | op @ TK::Sub
+                | op @ TK::Mul
+                | op @ TK::Div
+                | op @ TK::Less
+                | op @ TK::LessEq
+                | op @ TK::Greater
+                | op @ TK::GreatEq
+                | op @ TK::Eq
+                | op @ TK::NotEq
+                | op @ TK::Not
+                | op @ TK::And
+                | op @ TK::Or => op,
+
+                // These tokens are expression terminators, if one of these appear after an
+                // expression, the expression is fully parsed and there are no operators after it
+                TK::RParen
+                | TK::Let
+                | TK::Fun
+                | TK::FatArrow
+                | TK::Semicolon
+                | TK::Comma
+                | TK::Pipe
+                | TK::Then
+                | TK::Else
+                | TK::End
+                | TK::Eof => break,
+
+                _ => {
+                    let token = self.next()?;
+                    return Err(SyntaxError::UnexpectedToken {
+                        expected: "operator or expression terminator".to_string(),
+                        got: token,
+                    });
+                }
+            };
+
+            // Parse operator expression
+            if let Some((left_bp, ())) = op.postfix_bp() {
+                if left_bp < bp {
+                    // previous operator has a higher binding power than the new one
+                    // => end of expression
+                    break;
+                }
+
+                let op_token = self.next().unwrap();
+
+                // no recursive call here, because we have already parsed our operand `lhs`
+                lhs = spanned!(
+                    lhs.span.start..op_token.span.end,
+                    Expr::UnOp {
+                        op,
+                        operand: Box::new(lhs)
+                    }
+                );
+
+                // parsed an operator => go round the loop again
+                continue;
+            }
+
+            if let Some((left_bp, right_bp)) = op.infix_bp() {
+                if left_bp < bp {
+                    // previous operator has a higher binding power than the new one
+                    // => end of expression
+                    break;
+                }
+
+                self.advance();
+
+                let rhs = self.parse_expr(right_bp)?;
+                lhs = spanned!(
+                    lhs.span.start..rhs.span.end,
+                    Expr::BinOp {
+                        op,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs)
+                    }
+                );
+
+                // parsed an operator => go round the loop again
+                continue;
+            }
+            break;
+        }
 
         Ok(lhs)
     }
 
-    /// Parse any literal expression
+    /// Parse string, float, int, boolean, and unit literals
     fn parse_lit(&mut self, lit: TK) -> ParseResult<SpanExpr> {
         let token = self.next().unwrap();
         let text = self.text(token);
@@ -154,7 +248,7 @@ impl Parser<'_> {
         Ok(spanned!(token.span, Expr::Ident(text.to_string())))
     }
 
-    /// Parse closure
+    /// Parse closure in the form:
     fn parse_closure(&mut self) -> ParseResult<SpanExpr> {
         let fn_token = self.next().unwrap();
         let mut params = vec![];
@@ -169,7 +263,7 @@ impl Parser<'_> {
 
         let body = Box::new(self.expr()?);
         Ok(spanned!(
-            (fn_token.span.start..body.span.end),
+            fn_token.span.start..body.span.end,
             Expr::Closure(Function {
                 ident: None,
                 params,
@@ -178,7 +272,7 @@ impl Parser<'_> {
         ))
     }
 
-    /// Parse if expression
+    /// Parse if expression in the form:
     fn parse_if(&mut self) -> ParseResult<SpanExpr> {
         let if_token = self.next().unwrap();
         let cond = Box::new(self.expr()?);
@@ -188,7 +282,7 @@ impl Parser<'_> {
         let elss = Box::new(self.expr()?);
 
         Ok(spanned!(
-            (if_token.span.start..elss.span.end),
+            if_token.span.start..elss.span.end,
             Expr::If { cond, then, elss }
         ))
     }
@@ -203,9 +297,9 @@ impl Parser<'_> {
             self.advance();
 
             let mut patterns = vec![];
-            while self.at_any(LITERAL_TOKENS) {
+            while self.at_any(BASIC_EXPR_TOKENS) {
                 let peeked = self.peek();
-                patterns.push(self.parse_lit(peeked)?);
+                patterns.push(self.parse_basic_expr(peeked)?);
                 if self.at(TK::Comma) {
                     self.advance();
                 } else {
@@ -222,9 +316,31 @@ impl Parser<'_> {
         let end = self.consume_next(TK::End)?;
 
         Ok(spanned!(
-            (match_token.span.start..end.span.end),
+            match_token.span.start..end.span.end,
             Expr::Match { expr, arms }
         ))
+    }
+
+    /// Parse basic expression
+    fn parse_basic_expr(&mut self, peeked: TK) -> ParseResult<SpanExpr> {
+        match peeked {
+            lit @ TK::Unit
+            | lit @ TK::True
+            | lit @ TK::False
+            | lit @ TK::IntLit
+            | lit @ TK::FloatLit
+            | lit @ TK::StringLit => self.parse_lit(lit),
+
+            TK::Ident => self.parse_ident(),
+
+            _ => {
+                let token = self.next()?;
+                return Err(SyntaxError::UnexpectedToken {
+                    expected: "literal or identifier".to_string(),
+                    got: token,
+                });
+            }
+        }
     }
 
     /// Parse block expression
@@ -247,7 +363,7 @@ impl Parser<'_> {
         let end = self.consume_next(TK::End)?;
 
         Ok(spanned!(
-            (do_token.span.start..end.span.end),
+            do_token.span.start..end.span.end,
             Expr::Block { exprs }
         ))
     }
@@ -256,8 +372,122 @@ impl Parser<'_> {
     fn parse_group(&mut self) -> ParseResult<SpanExpr> {
         let l_token = self.next().unwrap();
         let expr = self.expr()?;
-        let r_token = self.consume_next(TK::RightParen)?;
+        let r_token = self.consume_next(TK::RParen)?;
 
-        Ok(spanned!((l_token.span.start..r_token.span.end), expr.node))
+        Ok(spanned!(l_token.span.start..r_token.span.end, expr.node))
+    }
+
+    /// Parse prefix operator expression
+    fn parse_prefix_op(&mut self, op: TK) -> ParseResult<SpanExpr> {
+        let op_token = self.next().unwrap();
+        let ((), right_bp) = op.prefix_bp().unwrap();
+
+        let operand = Box::new(self.parse_expr(right_bp)?);
+        Ok(spanned!(
+            op_token.span.start..operand.span.end,
+            Expr::UnOp { op, operand }
+        ))
+    }
+
+    /// Parse function call
+    fn parse_fncall(&mut self, lhs: SpanExpr) -> ParseResult<SpanExpr> {
+        self.advance();
+
+        let mut args = vec![];
+        while !self.at(TK::RParen) {
+            args.push(self.expr()?);
+
+            match self.peek() {
+                TK::RParen => break,
+                TK::Comma => self.advance(),
+                _ => {
+                    let token = self.next()?;
+                    return Err(SyntaxError::UnexpectedToken {
+                        expected: "',' or ')'".to_string(),
+                        got: token,
+                    });
+                }
+            }
+        }
+        let end = self.consume_next(TK::RParen)?;
+
+        Ok(spanned!(
+            lhs.span.start..end.span.end,
+            Expr::Call {
+                fun: Box::new(lhs),
+                args
+            }
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! assert_expr {
+        ($test:expr, $sexpr:expr) => {
+            assert_eq!(Parser::new($test).expr().unwrap().to_string(), $sexpr)
+        };
+    }
+
+    #[test]
+    fn parse_bool_expr() {
+        assert_expr!(
+            "!true or 10 < 6 and 2 != 1",
+            "(or (! true) (and (< 10 6) (!= 2 1)))"
+        );
+    }
+
+    #[test]
+    fn parse_arithmetic_comparison_operators() {
+        assert_expr!(
+            "10 + -9 * 0 - 90 / -90 != 69 / -4",
+            "(!= (- (+ 10 (* (- 9) 0)) (/ 90 (- 90))) (/ 69 (- 4)))"
+        );
+    }
+
+    #[test]
+    fn parse_identifier() {
+        assert_expr!("hello", "hello");
+    }
+
+    #[test]
+    fn parse_simple_function_call() {
+        assert_expr!("add(1, 69 + 420, 2)", "(call add :args [1 (+ 69 420) 2])");
+    }
+
+    #[test]
+    fn parse_nested_function_call() {
+        assert_expr!(
+            "add(69 + 420, add(57893, 43280))",
+            "(call add :args [(+ 69 420) (call add :args [57893 43280])])"
+        );
+    }
+
+    #[test]
+    fn parse_if_expr() {
+        assert_expr!(
+            "if 10 > 89 + 90 then 1 + 1 else -1",
+            "(if :cond (> 10 (+ 89 90)) :then (+ 1 1) :else (- 1))"
+        );
+    }
+
+    #[test]
+    fn parse_match_expr() {
+        assert_expr!(
+            "
+match x
+  | 1    => 69
+  | 2, 3 => 420
+  | _    => x * x * x
+end",
+            "(match x :arms [([1] 69) ([2 3] 420) ([_] (* (* x x) x))])"
+        );
+    }
+
+    #[test]
+    fn parse_closure() {
+        assert_expr!("fn x => x + 1", "(fn :params [x] :body (+ x 1))");
     }
 }

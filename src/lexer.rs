@@ -104,10 +104,10 @@ pub enum TK {
     /* BRACKETS */
     #[token("(")]
     #[display(fmt = "(")]
-    LeftParen,
+    LParen,
     #[token(")")]
     #[display(fmt = ")")]
-    RightParen,
+    RParen,
     /* MISC */
     #[token("=")]
     #[display(fmt = "=")]
