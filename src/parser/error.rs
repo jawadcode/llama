@@ -4,16 +4,21 @@ use crate::{ast::Spanned, lexer::Token};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyntaxError {
-    UnexpectedToken { expected: String, got: Token },
+    UnexpectedToken {
+        expected: String,
+        got: Token,
+    },
     InvalidLiteral(Token),
     InvalidEscSeq(Spanned<char>),
     UnexpectedEof(Token),
+    /// Not an actual error
+    End,
 }
 
 pub type ParseResult<T> = Result<T, SyntaxError>;
 
 impl SyntaxError {
-    fn report(&self, filename: String, file: &str) {
+    pub fn report(&self, filename: String, file: &str) {
         match self {
             SyntaxError::UnexpectedToken { expected, got } => {
                 Report::build(ReportKind::Error, &filename, got.span.start)
@@ -46,6 +51,9 @@ impl SyntaxError {
                         Label::new((filename.clone(), t.span.into()))
                             .with_message("Unexpected EOF"),
                     )
+            }
+            SyntaxError::End => {
+                unreachable!("You shouldn't be seeing this :(")
             }
         }
         .finish()

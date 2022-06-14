@@ -105,6 +105,12 @@ pub enum TK {
     #[token(")")]
     #[display(fmt = ")")]
     RParen,
+    #[token("[")]
+    #[display(fmt = "[")]
+    LSquare,
+    #[token("]")]
+    #[display(fmt = "]")]
+    RSquare,
     /* MISC */
     #[token("=")]
     #[display(fmt = "=")]
@@ -118,9 +124,15 @@ pub enum TK {
     #[token(",")]
     #[display(fmt = ",")]
     Comma,
+    #[token("->")]
+    #[display(fmt = "->")]
+    Arrow,
     #[token("=>")]
     #[display(fmt = "=>")]
     FatArrow,
+    #[token(":")]
+    #[display(fmt = ":")]
+    Colon,
     #[token(";")]
     #[display(fmt = ";")]
     Semicolon,

@@ -1,6 +1,7 @@
 use crate::{
-    ast::{Expr, Function, Lit, MatchArm, SpanExpr},
+    ast::{Expr, Lit, MatchArm, SpanExpr},
     lexer::{Token, TK},
+    spanned,
 };
 
 use super::{
@@ -57,15 +58,6 @@ impl Operator for TK {
         // *currently*, we have 0 postfix operators
         None
     }
-}
-
-macro_rules! spanned {
-    ($span:expr, $node:expr) => {
-        $crate::ast::Spanned {
-            span: $span.into(),
-            node: $node,
-        }
-    };
 }
 
 impl Parser<'_> {
@@ -226,12 +218,10 @@ impl Parser<'_> {
                     }
                 };
                 backslash = false;
+            } else if byte == b'\\' {
+                backslash = true;
             } else {
-                if byte == b'\\' {
-                    backslash = true;
-                } else {
-                    buf.push(byte);
-                }
+                buf.push(byte);
             }
         }
 
@@ -246,7 +236,7 @@ impl Parser<'_> {
         Ok(spanned!(token.span, Expr::Ident(text.to_string())))
     }
 
-    /// Parse closure in the form:
+    /// Parse closure
     fn parse_closure(&mut self) -> ParseResult<SpanExpr> {
         let fn_token = self.next().unwrap();
         let mut params = vec![];
@@ -262,15 +252,11 @@ impl Parser<'_> {
         let body = Box::new(self.expr()?);
         Ok(spanned!(
             fn_token.span.start..body.span.end,
-            Expr::Closure(Function {
-                ident: None,
-                params,
-                body
-            })
+            Expr::Closure { params, body }
         ))
     }
 
-    /// Parse if expression in the form:
+    /// Parse if expression
     fn parse_if(&mut self) -> ParseResult<SpanExpr> {
         let if_token = self.next().unwrap();
         let cond = Box::new(self.expr()?);
@@ -334,21 +320,21 @@ impl Parser<'_> {
 
             _ => {
                 let token = self.next()?;
-                return Err(SyntaxError::UnexpectedToken {
+                Err(SyntaxError::UnexpectedToken {
                     expected: "literal or identifier".to_string(),
                     got: token,
-                });
+                })
             }
         }
     }
 
     /// Parse block expression
-    fn parse_block(&mut self) -> ParseResult<SpanExpr> {
+    pub(super) fn parse_block(&mut self) -> ParseResult<SpanExpr> {
         let do_token = self.next().unwrap();
         let mut exprs = vec![];
         while !self.at(TK::End) {
             if self.at_any([TK::Let, TK::Fun]) {
-                exprs.push(todo!());
+                exprs.push(self.parse_stmt_expr()?);
             } else {
                 exprs.push(self.expr()?);
             }
@@ -365,6 +351,12 @@ impl Parser<'_> {
             do_token.span.start..end.span.end,
             Expr::Block { exprs }
         ))
+    }
+
+    /// Parse a statement expression
+    fn parse_stmt_expr(&mut self) -> ParseResult<SpanExpr> {
+        let stmt = self.parse_stmt()?;
+        Ok(spanned!(stmt.span, Expr::Stmt(stmt)))
     }
 
     /// Parse grouping
@@ -516,5 +508,19 @@ end",
     #[test]
     fn parse_closure() {
         assert_expr!("fn x => x + 1", "(fn :params [x] :body (+ x 1))");
+    }
+
+    #[test]
+    fn parse_block_expr() {
+        assert_expr!(
+            r#"
+do
+  let thing = 123;
+  print("lol");
+  let thing2 = 234;
+  thing + thing2
+end"#,
+            r#"(block [(let thing 123) (call print :args ["lol"]) (let thing2 234) (+ thing thing2)])"#
+        );
     }
 }

@@ -1,8 +1,11 @@
-use std::fmt;
+use std::{fmt, path::PathBuf};
 
 use derive_more::Display;
 
-use crate::lexer::{Span, TK};
+use crate::{
+    lexer::{Span, TK},
+    utils::{join, join_sep},
+};
 
 pub type SpanExpr = Spanned<Expr>;
 pub type SpanStmt = Spanned<Stmt>;
@@ -53,8 +56,8 @@ pub enum Expr {
     #[display(fmt = "(call {} :args [{}])", fun, "join(args)")]
     Call { fun: Boxpr, args: Exprs },
     /// Anonymous function
-    #[display(fmt = "(fn {})", _0)]
-    Closure(Function),
+    #[display(fmt = "(fn :params [{}] :body {})", "join(params)", body)]
+    Closure { params: Vec<String>, body: Boxpr },
     /// Statement as an expression in order to faciliate block expressions
     #[display(fmt = "{}", _0)]
     Stmt(SpanStmt),
@@ -63,18 +66,49 @@ pub enum Expr {
 #[derive(Debug, Display, Clone, PartialEq)]
 pub enum Stmt {
     /// Function definition
-    #[display(fmt = "(fun {} {})", ident, fun)]
-    FunDef { ident: String, fun: Function },
+    #[display(
+        fmt = "(fun {} :params [{}] :ret_type {} :body {})",
+        ident,
+        r#"params.iter().map(|(ident, ty)| format!("({ty} {ident})")).collect::<Vec<_>>().join(" ")"#,
+        ret_type,
+        body
+    )]
+    FunDef {
+        ident: String,
+        params: Vec<(String, TyIdent)>,
+        ret_type: TyIdent,
+        body: Boxpr,
+    },
     /// Let binding
-    #[display(fmt = "(let {} {})", ident, expr)]
-    Let { ident: String, expr: Boxpr },
+    #[display(
+        fmt = "(let {} {})",
+        r#"if let Some(annot) = annot { format!("({annot} {ident})") } else { ident.to_string() }"#,
+        expr
+    )]
+    Let {
+        ident: String,
+        annot: Option<TyIdent>,
+        expr: Boxpr,
+    },
+}
+
+/// A source file
+#[derive(Display)]
+#[display(
+    fmt = "PATH: {}\n\n{}",
+    "path.to_string_lossy()",
+    r#"join_sep(defs, "\n\n")"#
+)]
+pub struct SourceFile {
+    pub path: PathBuf,
+    pub defs: Vec<SpanStmt>,
 }
 
 /// Literal
 #[derive(Debug, Display, Clone, PartialEq)]
 pub enum Lit {
     /// String literal
-    #[display(fmt = "\"{}\"", _0)]
+    #[display(fmt = r#""{}""#, _0)]
     Str(String),
     /// Integer literal
     #[display(fmt = "{}", _0)]
@@ -90,6 +124,7 @@ pub enum Lit {
     Unit,
 }
 
+/// A match expression arm,
 #[derive(Debug, Display, Clone, PartialEq)]
 #[display(fmt = "([{}] {})", "join(patterns)", expr)]
 pub struct MatchArm {
@@ -97,17 +132,17 @@ pub struct MatchArm {
     pub expr: SpanExpr,
 }
 
+/// A type identifier
 #[derive(Debug, Display, Clone, PartialEq)]
-#[display(fmt = ":params [{}] :body {}", "join(params)", body)]
-pub struct Function {
-    pub ident: Option<String>,
-    pub params: Vec<String>,
-    pub body: Boxpr,
-}
-
-fn join(vec: &[impl ToString]) -> String {
-    vec.iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join(" ")
+pub enum TyIdent {
+    #[display(fmt = "Number")]
+    Num,
+    #[display(fmt = "String")]
+    Str,
+    #[display(fmt = "Bool")]
+    Bool,
+    #[display(fmt = "Unit")]
+    Unit,
+    #[display(fmt = "Fun[{}] -> {}", "join(_0)", _1)]
+    Fun(Vec<Self>, Box<Self>),
 }

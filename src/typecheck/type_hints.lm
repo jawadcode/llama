@@ -1,0 +1,12 @@
+fun fib(n: Number) : Number =
+    if n < 2 then 0
+    else fib(n - 2) + fib(n - 1)
+
+fun main() do
+    let x = 2 * 2 * 2;
+    let y = 4;
+    let number = x * y + 5 * 6 - 30;
+    let result = fib(number);
+
+    print_number(result)
+end

@@ -1,16 +1,30 @@
-use std::iter::Peekable;
+use std::{iter::Peekable, path::Path};
 
-use crate::lexer::{Lexer, Token, TK};
+use crate::{
+    ast::SourceFile,
+    lexer::{Lexer, Token, TK},
+};
 
 use self::error::{ParseResult, SyntaxError};
 
 pub mod error;
 pub mod expr;
+pub mod stmt;
 
 /// The parser and all associated state
 pub struct Parser<'input> {
     input: &'input str,
     lexer: Peekable<Lexer<'input>>,
+}
+
+#[macro_export]
+macro_rules! spanned {
+    ($span:expr, $node:expr) => {
+        $crate::ast::Spanned {
+            span: $span.into(),
+            node: $node,
+        }
+    };
 }
 
 impl<'input> Parser<'input> {
@@ -20,6 +34,29 @@ impl<'input> Parser<'input> {
             input,
             lexer: Lexer::new(input).peekable(),
         }
+    }
+
+    /// Parse `self.input` as a file, the `path` *must* be valid
+    pub fn parse_file(&mut self, path: &Path) -> Option<SourceFile> {
+        let filename = path.file_name().unwrap().to_string_lossy();
+        let mut defs = vec![];
+        loop {
+            match self.parse_stmt() {
+                Ok(stmt) => defs.push(stmt),
+                Err(err) => match err {
+                    SyntaxError::End => break,
+                    err => {
+                        err.report(filename.to_string(), self.input);
+                        return None;
+                    }
+                },
+            }
+        }
+
+        Some(SourceFile {
+            path: path.canonicalize().unwrap(),
+            defs,
+        })
     }
 
     /// Return the next token, or if there are no more tokens: `SyntaxError::UnexpectedEof`

@@ -1,0 +1,6 @@
+fun hello(name) = print("Hello, " + name)
+
+fun main() do
+    let name = "Jawad";
+    hello(name)
+end
