@@ -5,7 +5,7 @@ Llama is a WIP, high-level, functional programming language
 ## Roadmap:
 
 - [x] Lexer
-- [ ] Parser
+- [x] Parser
     - [x] Expression parser
     - [x] Statement parser
 - [ ] Typechecker
