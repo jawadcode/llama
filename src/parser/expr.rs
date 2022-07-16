@@ -209,8 +209,10 @@ impl Parser<'_> {
         for (i, byte) in text[1..(text.len() - 1)].bytes().enumerate() {
             if backslash {
                 match byte {
-                    b't' => buf.push(b'\t'),
                     b'n' => buf.push(b'\n'),
+                    b'r' => buf.push(b'\r'),
+                    b't' => buf.push(b'\t'),
+                    b'0' => buf.push(b'\0'),
                     b @ b'"' | b @ b'\\' => buf.push(b),
                     b => {
                         return Err(SyntaxError::InvalidEscSeq(spanned!(
