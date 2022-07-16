@@ -1,1 +1,4 @@
 /target
+replit.nix
+.replit
+.rustfmt.toml

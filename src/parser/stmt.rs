@@ -98,8 +98,8 @@ impl Parser<'_> {
         let text = self.text(ident);
 
         Ok(match text {
-            "Number" => TyIdent::Num,
-            "String" => TyIdent::Str,
+            "Number" => TyIdent::Number,
+            "String" => TyIdent::String,
             "Bool" => TyIdent::Bool,
             "Unit" => TyIdent::Unit,
             "Fun" => {

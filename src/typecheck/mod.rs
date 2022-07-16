@@ -1,19 +1,18 @@
 use derive_more::Display;
-use std::{collections::HashMap, env, os, path::PathBuf};
+use std::collections::HashMap;
 
 use crate::{
-    ast::{Expr, Lit, SourceFile, SpanExpr, Stmt, TyIdent},
-    lexer::{Span, TK},
-    parser::error::SyntaxError,
+    ast::{SourceFile, Stmt, TyIdent},
+    lexer::Span,
     utils::join_sep,
 };
 
 #[derive(Debug, Display, Clone, PartialEq)]
 pub enum Type {
     #[display(fmt = "Number")]
-    Num,
+    Number,
     #[display(fmt = "String")]
-    Str,
+    String,
     #[display(fmt = "Bool")]
     Bool,
     #[display(fmt = "Unit")]
@@ -25,8 +24,8 @@ pub enum Type {
 impl From<&TyIdent> for Type {
     fn from(ty_ident: &TyIdent) -> Self {
         match ty_ident {
-            TyIdent::Num => Type::Num,
-            TyIdent::Str => Type::Str,
+            TyIdent::Number => Type::Number,
+            TyIdent::String => Type::String,
             TyIdent::Bool => Type::Bool,
             TyIdent::Unit => Type::Unit,
             TyIdent::Fun(params, ret_type) => Type::Fun(

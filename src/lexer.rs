@@ -38,6 +38,9 @@ pub enum TK {
     #[regex(r"([A-Za-z]|_)([A-Za-z]|_|\d)*")]
     #[display(fmt = "identifier")]
     Ident,
+    #[token("unit")]
+    #[display(fmt = "unit")]
+    Unit,
     #[token("true")]
     #[display(fmt = "true")]
     True,
@@ -53,7 +56,7 @@ pub enum TK {
     #[regex(r#"((\d+(\.\d+)?)|(\.\d+))([Ee](\+|-)?\d+)?"#, priority = 1)]
     #[display(fmt = "float literal")]
     FloatLit,
-    #[regex(r#""((\\"|\\\\)|[^\\"])*""#)]
+    #[regex(r#""([^"\\]|\\[\s\S])*""#)]
     #[display(fmt = "string literal")]
     StringLit,
     /* ARITHMETIC OPERATORS */
@@ -146,14 +149,15 @@ pub enum TK {
 
 fn comment_lexer(lex: &mut logos::Lexer<TK>) -> Skip {
     let rem = lex.remainder();
+    let mut nesting = 0;
+    let mut previous = None;
 
-    let (mut nesting, mut previous) = (0, None);
     for (idx, current) in rem.char_indices() {
         if let Some(previous) = previous {
-            match (current, previous) {
-                ('*', '(') => nesting += 1,
-                (')', '*') if nesting > 0 => nesting -= 1,
-                (')', '*') => {
+            match (previous, current) {
+                ('(', '*') => nesting += 1,
+                ('*', ')') if nesting > 0 => nesting -= 1,
+                ('*', ')') => {
                     lex.bump(idx + 2);
                     return Skip;
                 }

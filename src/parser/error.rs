@@ -64,26 +64,26 @@ impl SyntaxError {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::{Token, TK};
+    /*
+        use crate::lexer::{Token, TK};
+        use super::SyntaxError;
 
-    use super::SyntaxError;
+        fn unexpected_token() {
+            let filename = "testing.lm".to_string();
+            let file = r"fun main() hello do
+        do_thing()
+    end";
+            let span = 11..16;
+            let token = Token {
+                kind: TK::Ident,
+                span: span.into(),
+            };
 
-    // Not a test because you're not supposed to do output stuff during tests apparently
-    fn unexpected_token() {
-        let filename = "testing.lm".to_string();
-        let file = r"fun main() hello do
-    do_thing()
-end";
-        let span = 11..16;
-        let token = Token {
-            kind: TK::Ident,
-            span: span.into(),
-        };
-
-        SyntaxError::UnexpectedToken {
-            expected: "do".to_string(),
-            got: token,
+            SyntaxError::UnexpectedToken {
+                expected: "do".to_string(),
+                got: token,
+            }
+            .report(filename, file)
         }
-        .report(filename, file)
-    }
+      */
 }

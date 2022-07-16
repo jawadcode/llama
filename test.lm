@@ -1,6 +1,12 @@
-fun hello(name) = print("Hello, " + name)
+fun hello(name: String) = print("Hello,\n\t" + name)
+
+fun give_unit() =
+    (* Here you
+        (* go *)
+        👉 *) unit
 
 fun main() do
     let name = "Jawad";
-    hello(name)
+    hello(name);
+    give_unit()
 end

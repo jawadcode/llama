@@ -67,12 +67,12 @@ pub enum Expr {
 pub enum Stmt {
     /// Function definition
     #[display(
-        fmt = "(fun {} :params [{}] :ret_type {} :body {})",
-        ident,
-        r#"params.iter().map(|(ident, ty)| format!("({ty} {ident})")).collect::<Vec<_>>().join(" ")"#,
-        ret_type,
-        body
-    )]
+    fmt = "(fun {} :params [{}] :ret_type {} :body {})",
+    ident,
+    r#"params.iter().map(|(ident, ty)| format!("({ty} {ident})")).collect::<Vec<_>>().join(" ")"#,
+    ret_type,
+    body
+  )]
     FunDef {
         ident: String,
         params: Vec<(String, TyIdent)>,
@@ -136,9 +136,9 @@ pub struct MatchArm {
 #[derive(Debug, Display, Clone, PartialEq)]
 pub enum TyIdent {
     #[display(fmt = "Number")]
-    Num,
+    Number,
     #[display(fmt = "String")]
-    Str,
+    String,
     #[display(fmt = "Bool")]
     Bool,
     #[display(fmt = "Unit")]
