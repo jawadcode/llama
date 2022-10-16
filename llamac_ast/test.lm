@@ -1,0 +1,7 @@
+fun fib(n : Number) : Number =
+	cond
+	| x < 2   => "idk"
+	| x > 5   => "wtf"
+	| x == 10 => "wbu"
+	| else    => "jfk"
+	end
