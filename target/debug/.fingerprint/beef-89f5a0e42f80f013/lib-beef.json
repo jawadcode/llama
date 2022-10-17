@@ -1,1 +1,0 @@
-{"rustc":11934069355019162238,"features":"[\"default\"]","target":10586911519518742184,"profile":12637318739757120569,"path":9787992481999855410,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/beef-89f5a0e42f80f013/dep-lib-beef"}}],"rustflags":["-C","link-arg=-fuse-ld=/usr/bin/mold"],"metadata":4183526453000120838,"config":16520146531172537597,"compile_kind":0}
