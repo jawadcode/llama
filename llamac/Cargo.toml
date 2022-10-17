@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 llamac_ast = { path = "../llamac_ast" }
+llamac_parser = { path = "../llamac_parser" }

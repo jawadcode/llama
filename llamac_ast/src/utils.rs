@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Index, Range},
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 /// Custom span for storing the position of a token or AST node in the source string
 pub struct Span {
     /// The start of the span (inclusive)
@@ -59,6 +59,21 @@ pub struct Spanned<T: Display + Clone> {
     pub node: T,
 }
 
+impl<T: Display + Clone> Spanned<T> {
+    pub fn map<U: Display + Clone, F: FnOnce(T) -> U>(self, op: F) -> Spanned<U> {
+        Spanned {
+            span: self.span,
+            node: op(self.node),
+        }
+    }
+    pub fn map_span<F: FnOnce(Span) -> Span>(self, op: F) -> Spanned<T> {
+        Spanned {
+            span: op(self.span),
+            node: self.node,
+        }
+    }
+}
+
 impl<T: Display + Clone> Display for Spanned<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.node.fmt(f)
@@ -69,7 +84,7 @@ impl<T: Display + Clone> Display for Spanned<T> {
 macro_rules! spanned {
     ($span:expr, $node:expr) => {
         $crate::utils::Spanned {
-            span: $span.into(),
+            span: ($span).into(),
             node: $node,
         }
     };

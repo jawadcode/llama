@@ -2,5 +2,6 @@
 
 members = [
   "llamac_ast",
+  "llamac_parser",
   "llamac"
 ]

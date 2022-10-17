@@ -1,0 +1,1 @@
+{"rustc":11934069355019162238,"features":"[]","target":1465505202415850626,"profile":9251013656241001069,"path":428381549867740353,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/llamac_ast-27dfe4a80d3c8c9b/dep-lib-llamac_ast"}}],"rustflags":["-C","link-arg=-fuse-ld=/usr/bin/mold"],"metadata":7797948686568424061,"config":16520146531172537597,"compile_kind":0}

@@ -1,0 +1,6 @@
+fun fib(n : Number) : Number =
+	if n < 2
+		then n
+		else fib(n - 2) + fib(n - 1)
+
+fun main() = print_number(fib(21))

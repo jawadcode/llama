@@ -28,6 +28,7 @@ name = "llamac"
 version = "0.1.0"
 dependencies = [
  "llamac_ast",
+ "llamac_parser",
 ]
 
 [[package]]
@@ -39,6 +40,7 @@ name = "llamac_parser"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "llamac_ast",
  "logos",
 ]
 

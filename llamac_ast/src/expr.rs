@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Write};
 
 use crate::{
     parens_fmt,
-    stmt::SpanStmt,
+    stmt::{SpanStmt, Type},
     utils::{FmtItems, Spanned},
     Ident,
 };
@@ -13,15 +13,17 @@ pub type SpanExpr = Spanned<Box<Expr>>;
 pub enum Expr {
     Ident(Ident),
     Literal(Literal),
-    Range(Range),
     List(List),
+    ListIndex(ListIndex),
     UnaryOp(UnaryOp),
     BinaryOp(BinaryOp),
+    FunCall(FunCall),
+    Closure(Closure),
     IfThen(IfThen),
     Cond(Cond),
+    Match(Match),
     Block(Block),
     Stmt(SpanStmt),
-    Error,
 }
 
 impl Display for Expr {
@@ -29,15 +31,17 @@ impl Display for Expr {
         match self {
             Expr::Ident(ident) => ident.fmt(f),
             Expr::Literal(literal) => literal.fmt(f),
-            Expr::Range(range) => parens_fmt!(f, range),
             Expr::List(list) => list.fmt(f),
+            Expr::ListIndex(list_index) => list_index.fmt(f),
             Expr::UnaryOp(unary_op) => parens_fmt!(f, unary_op),
             Expr::BinaryOp(binary_op) => parens_fmt!(f, binary_op),
+            Expr::FunCall(fun_call) => fun_call.fmt(f),
+            Expr::Closure(closure) => closure.fmt(f),
             Expr::IfThen(if_then) => if_then.fmt(f),
             Expr::Cond(cond) => cond.fmt(f),
+            Expr::Match(r#match) => r#match.fmt(f),
             Expr::Block(block) => block.fmt(f),
             Expr::Stmt(stmt) => parens_fmt!(f, stmt),
-            Expr::Error => f.write_str("(* error node *)"),
         }
     }
 }
@@ -66,26 +70,27 @@ impl Display for Literal {
 }
 
 #[derive(Clone)]
-pub struct Range {
-    pub start: SpanExpr,
-    pub end: SpanExpr,
-}
-
-impl Display for Range {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.start.fmt(f)?;
-        f.write_str("...")?;
-        self.end.fmt(f)
-    }
-}
-
-#[derive(Clone)]
-pub struct List(Vec<SpanExpr>);
+pub struct List(pub Vec<SpanExpr>);
 
 impl Display for List {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_char('[')?;
         FmtItems::new(&self.0, ", ").fmt(f)?;
+        f.write_char(']')
+    }
+}
+
+#[derive(Clone)]
+pub struct ListIndex {
+    pub list: SpanExpr,
+    pub index: SpanExpr,
+}
+
+impl Display for ListIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.list.fmt(f)?;
+        f.write_char('[')?;
+        self.index.fmt(f)?;
         f.write_char(']')
     }
 }
@@ -124,6 +129,30 @@ pub struct BinaryOp {
     pub op: BinOp,
     pub lhs: SpanExpr,
     pub rhs: SpanExpr,
+}
+
+#[derive(Clone)]
+pub struct FunCall {
+    pub fun: SpanExpr,
+    pub args: Spanned<FunArgs>,
+}
+
+impl Display for FunCall {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fun.fmt(f)?;
+        self.args.fmt(f)
+    }
+}
+
+#[derive(Clone)]
+pub struct FunArgs(pub Vec<SpanExpr>);
+
+impl Display for FunArgs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_char('(')?;
+        FmtItems::new(&self.0, ", ").fmt(f)?;
+        f.write_char(')')
+    }
 }
 
 impl Display for BinaryOp {
@@ -180,6 +209,55 @@ impl Display for BinOp {
 }
 
 #[derive(Clone)]
+pub struct Closure {
+    pub params: Spanned<ClosureParams>,
+    pub ret_ty: Option<Spanned<Type>>,
+    pub body: SpanExpr,
+}
+
+impl Display for Closure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("fn ")?;
+        self.params.fmt(f)?;
+        if let Some(ret_ty) = &self.ret_ty {
+            f.write_str(" : ")?;
+            ret_ty.fmt(f)?;
+        }
+        f.write_str(" => ")?;
+        self.body.fmt(f)
+    }
+}
+
+#[derive(Clone)]
+pub struct ClosureParams(pub Vec<Spanned<ClosureParam>>);
+
+impl Display for ClosureParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        FmtItems::new(&self.0, ' ').fmt(f)
+    }
+}
+
+#[derive(Clone)]
+pub struct ClosureParam {
+    pub name: Spanned<Ident>,
+    pub annot: Option<Spanned<Type>>,
+}
+
+impl Display for ClosureParam {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(annot) = &self.annot {
+            f.write_char('(')?;
+            self.name.fmt(f)?;
+            f.write_str(" : ")?;
+            annot.fmt(f)?;
+            f.write_char(')')
+        } else {
+            self.name.fmt(f)
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct IfThen {
     pub cond: SpanExpr,
     pub then: SpanExpr,
@@ -222,7 +300,7 @@ impl Display for Cond {
 }
 
 #[derive(Clone)]
-pub struct CondArms(Vec<Spanned<CondArm>>);
+pub struct CondArms(pub Vec<Spanned<CondArm>>);
 
 impl Display for CondArms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -247,7 +325,7 @@ impl Display for CondArm {
 
 #[derive(Clone)]
 pub struct Match {
-    pub expr: Expr,
+    pub expr: SpanExpr,
     pub arms: Spanned<MatchArms>,
 }
 
@@ -262,7 +340,7 @@ impl Display for Match {
 }
 
 #[derive(Clone)]
-pub struct MatchArms(Vec<Spanned<MatchArm>>);
+pub struct MatchArms(pub Vec<Spanned<MatchArm>>);
 
 impl Display for MatchArms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -272,21 +350,21 @@ impl Display for MatchArms {
 
 #[derive(Clone)]
 pub struct MatchArm {
-    pub patterns: Spanned<MatchPatterns>,
+    pub pattern: Spanned<MatchPatterns>,
     pub branch: SpanExpr,
 }
 
 impl Display for MatchArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("| ")?;
-        self.patterns.fmt(f)?;
+        self.pattern.fmt(f)?;
         f.write_str(" => ")?;
         self.branch.fmt(f)
     }
 }
 
 #[derive(Clone)]
-pub struct MatchPatterns(Vec<Spanned<MatchPattern>>);
+pub struct MatchPatterns(pub Vec<Spanned<MatchPattern>>);
 
 impl Display for MatchPatterns {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -298,10 +376,6 @@ impl Display for MatchPatterns {
 pub enum MatchPattern {
     Wildcard,
     Literal(Literal),
-    Range(Range),
-    EmptyList,
-    List(MatchPatterns),
-    HeadTail(Spanned<Box<MatchPattern>>, Spanned<MatchPatterns>),
 }
 
 impl Display for MatchPattern {
@@ -309,20 +383,12 @@ impl Display for MatchPattern {
         match self {
             MatchPattern::Wildcard => f.write_str("*"),
             MatchPattern::Literal(literal) => literal.fmt(f),
-            MatchPattern::Range(range) => range.fmt(f),
-            MatchPattern::EmptyList => f.write_str("[]"),
-            MatchPattern::List(list) => list.fmt(f),
-            MatchPattern::HeadTail(head, tail) => {
-                head.fmt(f)?;
-                f.write_str(" ++ ")?;
-                tail.fmt(f)
-            }
         }
     }
 }
 
 #[derive(Clone)]
-pub struct Block(Vec<SpanExpr>);
+pub struct Block(pub Vec<SpanExpr>);
 
 impl Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Write};
 
 use crate::{
-    expr::{Cond, IfThen, SpanExpr},
+    expr::{Cond, IfThen, Match, SpanExpr},
     utils::{FmtItems, Spanned},
     Ident,
 };
@@ -15,7 +15,7 @@ pub enum Stmt {
     FunDef(FunDef),
     IfThen(IfThen),
     Cond(Cond),
-    Error,
+    Match(Match),
 }
 
 impl Display for Stmt {
@@ -26,15 +26,15 @@ impl Display for Stmt {
             Stmt::FunDef(fun_def) => fun_def.fmt(f),
             Stmt::IfThen(if_then) => if_then.fmt(f),
             Stmt::Cond(cond) => cond.fmt(f),
-            Stmt::Error => f.write_str("(* error node *)"),
+            Stmt::Match(r#match) => r#match.fmt(f),
         }
     }
 }
 
 #[derive(Clone)]
 pub struct Const {
-    pub name: Ident,
-    pub annot: Type,
+    pub name: Spanned<Ident>,
+    pub annot: Spanned<Type>,
     pub value: SpanExpr,
 }
 
@@ -51,8 +51,8 @@ impl Display for Const {
 
 #[derive(Clone)]
 pub struct LetBind {
-    pub name: Ident,
-    pub annot: Option<Type>,
+    pub name: Spanned<Ident>,
+    pub annot: Option<Spanned<Type>>,
     pub value: SpanExpr,
 }
 
@@ -71,9 +71,9 @@ impl Display for LetBind {
 
 #[derive(Clone)]
 pub struct FunDef {
-    pub name: Ident,
-    pub params: FunParams,
-    pub ret_ty: Type,
+    pub name: Spanned<Ident>,
+    pub params: Spanned<FunParams>,
+    pub ret_ty: Spanned<Type>,
     pub body: SpanExpr,
 }
 
@@ -88,7 +88,7 @@ impl Display for FunDef {
 }
 
 #[derive(Clone)]
-pub struct FunParams(Vec<Spanned<FunParam>>);
+pub struct FunParams(pub Vec<Spanned<FunParam>>);
 
 impl Display for FunParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -100,8 +100,8 @@ impl Display for FunParams {
 
 #[derive(Clone)]
 pub struct FunParam {
-    pub name: Ident,
-    pub annot: Type,
+    pub name: Spanned<Ident>,
+    pub annot: Spanned<Type>,
 }
 
 impl Display for FunParam {
@@ -113,7 +113,7 @@ impl Display for FunParam {
 }
 
 #[derive(Clone)]
-pub struct Types(Vec<Spanned<Type>>);
+pub struct Types(pub Vec<Spanned<Type>>);
 
 impl Display for Types {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -127,12 +127,13 @@ impl Display for Types {
 pub enum Type {
     /// Type constructors
     Fun {
-        params: Types,
+        params: Spanned<Types>,
         ret_ty: Spanned<Box<Self>>,
     },
-    List(Box<Spanned<Type>>),
+    List(Spanned<Box<Type>>),
     // Primitives
     Unit,
+    Bool,
     Number,
     String,
 }
@@ -152,6 +153,7 @@ impl Display for Type {
                 f.write_char(']')
             }
             Type::Unit => f.write_str("Unit"),
+            Type::Bool => f.write_str("Bool"),
             Type::Number => f.write_str("Number"),
             Type::String => f.write_str("String"),
         }
