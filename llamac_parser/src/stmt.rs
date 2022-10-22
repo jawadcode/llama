@@ -1,6 +1,6 @@
 use llamac_ast::{
     spanned,
-    stmt::{Const, FunDef, FunParam, FunParams, LetBind, SpanStmt, Stmt, Type, Types},
+    stmt::{Const, FunDef, FunParam, FunParams, LetBind, SpanStmt, Stmt, TypeExpr, TypeExprs},
     utils::{Span, Spanned},
 };
 
@@ -65,21 +65,22 @@ impl Parser<'_> {
             self.lexer.next().unwrap();
             self.parse_type()?
         } else {
-            spanned! {rparen.span.end..rparen.span.end, Type::Unit}
+            spanned! {rparen.span.end..rparen.span.end, TypeExpr::Unit}
         };
         self.expect(TK::Assign)?;
         let body = self.parse_expr()?;
         Ok(spanned! {fun.span.start..body.span.end, FunDef { name, params, ret_ty, body }})
     }
 
-    pub(super) fn parse_type(&mut self) -> ParseResult<Spanned<Type>> {
+    pub(super) fn parse_type(&mut self) -> ParseResult<Spanned<TypeExpr>> {
         let name = self.expect(TK::Ident)?;
         let text = name.text(self.source);
         match text {
-            "Unit" => Ok(spanned! {name.span, Type::Unit}),
-            "Bool" => Ok(spanned! {name.span, Type::Bool}),
-            "String" => Ok(spanned! {name.span, Type::String}),
-            "Number" => Ok(spanned! {name.span, Type::Number}),
+            "Unit" => Ok(spanned! {name.span, TypeExpr::Unit}),
+            "Bool" => Ok(spanned! {name.span, TypeExpr::Bool}),
+            "String" => Ok(spanned! {name.span, TypeExpr::String}),
+            "Int" => Ok(spanned! {name.span, TypeExpr::Int}),
+            "Float" => Ok(spanned! {name.span, TypeExpr::Float}),
             "Fun" => self.parse_type_fun(name.span),
             "List" => self.parse_type_list(name.span),
             _ => Err(SyntaxError::UnexpectedToken {
@@ -89,7 +90,7 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_type_fun(&mut self, name: Span) -> ParseResult<Spanned<Type>> {
+    fn parse_type_fun(&mut self, name: Span) -> ParseResult<Spanned<TypeExpr>> {
         let lsquare = self.expect(TK::LSquare)?;
         let mut params = Vec::new();
         while !self.at(TK::RSquare) {
@@ -97,16 +98,16 @@ impl Parser<'_> {
             params.push(param);
         }
         let rsquare = self.expect(TK::RSquare)?;
-        let params = spanned! {lsquare.span + rsquare.span, Types(params)};
+        let params = spanned! {lsquare.span + rsquare.span, TypeExprs(params)};
         self.expect(TK::Arrow)?;
         let ret_ty = self.parse_type()?.map(Box::new);
-        Ok(spanned! {name + rsquare.span, Type::Fun { params, ret_ty }})
+        Ok(spanned! {name + rsquare.span, TypeExpr::Fun { params, ret_ty }})
     }
 
-    fn parse_type_list(&mut self, name: Span) -> ParseResult<Spanned<Type>> {
+    fn parse_type_list(&mut self, name: Span) -> ParseResult<Spanned<TypeExpr>> {
         self.expect(TK::LSquare)?;
         let item = self.parse_type()?.map(Box::new);
         let rsquare = self.expect(TK::RSquare)?;
-        Ok(spanned! {name + rsquare.span, Type::List(item)})
+        Ok(spanned! {name + rsquare.span, TypeExpr::List(item)})
     }
 }

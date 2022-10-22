@@ -90,7 +90,7 @@ macro_rules! spanned {
     };
 }
 
-pub(crate) struct FmtItems<'iter, I: Display, S: Display> {
+pub struct FmtItems<'iter, I: Display, S: Display> {
     items: &'iter [I],
     sep: S,
 }

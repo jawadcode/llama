@@ -117,7 +117,8 @@ impl Parser<'_> {
             TK::UnitLit => Literal::Unit,
             TK::True => Literal::Bool(true),
             TK::False => Literal::Bool(false),
-            TK::IntLit | TK::FloatLit => Literal::Number(text.parse().unwrap()),
+            TK::IntLit => Literal::Int(text.parse::<i64>().unwrap()),
+            TK::FloatLit => Literal::Float(text.parse::<f64>().unwrap()),
             _ => unreachable!(),
         };
         Ok(spanned! {token.span, lit})

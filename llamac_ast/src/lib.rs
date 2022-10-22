@@ -10,7 +10,7 @@ pub mod expr;
 pub mod stmt;
 pub mod utils;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ident(String);
 
 impl Ident {

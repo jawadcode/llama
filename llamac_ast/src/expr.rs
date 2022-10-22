@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Write};
 
 use crate::{
     parens_fmt,
-    stmt::{SpanStmt, Type},
+    stmt::{SpanStmt, TypeExpr},
     utils::{FmtItems, Spanned},
     Ident,
 };
@@ -36,7 +36,7 @@ impl Display for Expr {
             Expr::UnaryOp(unary_op) => parens_fmt!(f, unary_op),
             Expr::BinaryOp(binary_op) => parens_fmt!(f, binary_op),
             Expr::FunCall(fun_call) => fun_call.fmt(f),
-            Expr::Closure(closure) => closure.fmt(f),
+            Expr::Closure(closure) => parens_fmt!(f, closure),
             Expr::IfThen(if_then) => if_then.fmt(f),
             Expr::Cond(cond) => cond.fmt(f),
             Expr::Match(r#match) => r#match.fmt(f),
@@ -46,11 +46,12 @@ impl Display for Expr {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Literal {
     Unit,
     String(String),
-    Number(f64),
+    Int(i64),
+    Float(f64),
     Bool(bool),
 }
 
@@ -63,7 +64,8 @@ impl Display for Literal {
                 string.fmt(f)?;
                 f.write_char('"')
             }
-            Literal::Number(number) => number.fmt(f),
+            Literal::Int(int) => int.fmt(f),
+            Literal::Float(float) => float.fmt(f),
             Literal::Bool(bool) => bool.fmt(f),
         }
     }
@@ -211,7 +213,7 @@ impl Display for BinOp {
 #[derive(Clone)]
 pub struct Closure {
     pub params: Spanned<ClosureParams>,
-    pub ret_ty: Option<Spanned<Type>>,
+    pub ret_ty: Option<Spanned<TypeExpr>>,
     pub body: SpanExpr,
 }
 
@@ -240,7 +242,7 @@ impl Display for ClosureParams {
 #[derive(Clone)]
 pub struct ClosureParam {
     pub name: Spanned<Ident>,
-    pub annot: Option<Spanned<Type>>,
+    pub annot: Option<Spanned<TypeExpr>>,
 }
 
 impl Display for ClosureParam {
@@ -292,7 +294,7 @@ impl Display for Cond {
         f.write_str("cond ")?;
         self.arms.fmt(f)?;
         if let Some(r#else) = &self.r#else {
-            f.write_str("| else => ")?;
+            f.write_str(" | else => ")?;
             r#else.fmt(f)?;
         }
         f.write_str(" end")

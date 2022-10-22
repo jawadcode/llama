@@ -34,7 +34,7 @@ impl Display for Stmt {
 #[derive(Clone)]
 pub struct Const {
     pub name: Spanned<Ident>,
-    pub annot: Spanned<Type>,
+    pub annot: Spanned<TypeExpr>,
     pub value: SpanExpr,
 }
 
@@ -52,7 +52,7 @@ impl Display for Const {
 #[derive(Clone)]
 pub struct LetBind {
     pub name: Spanned<Ident>,
-    pub annot: Option<Spanned<Type>>,
+    pub annot: Option<Spanned<TypeExpr>>,
     pub value: SpanExpr,
 }
 
@@ -73,7 +73,7 @@ impl Display for LetBind {
 pub struct FunDef {
     pub name: Spanned<Ident>,
     pub params: Spanned<FunParams>,
-    pub ret_ty: Spanned<Type>,
+    pub ret_ty: Spanned<TypeExpr>,
     pub body: SpanExpr,
 }
 
@@ -101,7 +101,7 @@ impl Display for FunParams {
 #[derive(Clone)]
 pub struct FunParam {
     pub name: Spanned<Ident>,
-    pub annot: Spanned<Type>,
+    pub annot: Spanned<TypeExpr>,
 }
 
 impl Display for FunParam {
@@ -113,9 +113,9 @@ impl Display for FunParam {
 }
 
 #[derive(Clone)]
-pub struct Types(pub Vec<Spanned<Type>>);
+pub struct TypeExprs(pub Vec<Spanned<TypeExpr>>);
 
-impl Display for Types {
+impl Display for TypeExprs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_char('[')?;
         FmtItems::new(&self.0, ", ").fmt(f)?;
@@ -124,38 +124,40 @@ impl Display for Types {
 }
 
 #[derive(Clone)]
-pub enum Type {
+pub enum TypeExpr {
     /// Type constructors
     Fun {
-        params: Spanned<Types>,
+        params: Spanned<TypeExprs>,
         ret_ty: Spanned<Box<Self>>,
     },
-    List(Spanned<Box<Type>>),
+    List(Spanned<Box<TypeExpr>>),
     // Primitives
     Unit,
     Bool,
-    Number,
+    Int,
+    Float,
     String,
 }
 
-impl Display for Type {
+impl Display for TypeExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Type::Fun { params, ret_ty } => {
+            TypeExpr::Fun { params, ret_ty } => {
                 f.write_str("Fun")?;
                 params.fmt(f)?;
                 f.write_str(" -> ")?;
                 ret_ty.fmt(f)
             }
-            Type::List(ty) => {
+            TypeExpr::List(ty) => {
                 f.write_str("List[")?;
                 ty.fmt(f)?;
                 f.write_char(']')
             }
-            Type::Unit => f.write_str("Unit"),
-            Type::Bool => f.write_str("Bool"),
-            Type::Number => f.write_str("Number"),
-            Type::String => f.write_str("String"),
+            TypeExpr::Unit => f.write_str("Unit"),
+            TypeExpr::Bool => f.write_str("Bool"),
+            TypeExpr::Int => f.write_str("Int"),
+            TypeExpr::Float => f.write_str("Float"),
+            TypeExpr::String => f.write_str("String"),
         }
     }
 }
