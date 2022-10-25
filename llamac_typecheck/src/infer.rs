@@ -4,13 +4,16 @@ use std::{
 };
 
 use llamac_ast::{
-    expr::{Expr, ListIndex, Literal, SpanExpr},
+    expr::{BinOp, Expr, ListIndex, Literal, SpanExpr, UnOp},
     spanned,
     utils::Span,
     Ident,
 };
 
-use crate::{ty::Type, typed_ast::expr::TypedExpr};
+use crate::{
+    ty::Type,
+    typed_ast::expr::{InnerExpr, TypedExpr, TypedList, TypedListIndex, TypedUnaryOp},
+};
 
 /// The relationship between 2 types, can be used to constrain type variables to more concrete types
 enum Constraint {
@@ -47,8 +50,14 @@ impl Engine {
         match expr.node.as_ref() {
             Expr::Ident(ident) => {
                 let ty = self.get_var(&ident, expr.span)?;
-                self.constraints.push(Constraint::Eq(expected, ty));
-                todo!()
+                self.constraints.push(Constraint::Eq(expected, ty.clone()));
+                Ok(TypedExpr(
+                    spanned! {
+                        expr.span,
+                        Box::new(InnerExpr::Ident(ident.clone()))
+                    },
+                    ty,
+                ))
             }
             Expr::Literal(literal) => {
                 let ty = match literal {
@@ -58,8 +67,14 @@ impl Engine {
                     Literal::Float(_) => Type::Float,
                     Literal::Bool(_) => Type::Bool,
                 };
-                self.constraints.push(Constraint::Eq(expected, ty));
-                todo!()
+                self.constraints.push(Constraint::Eq(expected, ty.clone()));
+                Ok(TypedExpr(
+                    spanned! {
+                        expr.span,
+                        Box::new(InnerExpr::Literal(literal.clone()))
+                    },
+                    ty,
+                ))
             }
             Expr::List(list) => {
                 let item_ty = self.fresh_typevar();
@@ -72,16 +87,67 @@ impl Engine {
                 {
                     new_items.push(item?);
                 }
-                todo!()
+                Ok(TypedExpr(
+                    spanned! {
+                        expr.span,
+                        Box::new(InnerExpr::List(TypedList(new_items)))
+                    },
+                    Type::List(Box::new(item_ty)),
+                ))
             }
             Expr::ListIndex(index) => {
                 let new_index = self.infer(Type::Int, index.index.clone())?;
                 let item_ty = self.fresh_typevar();
-                let new_list = self.infer(Type::List(Box::new(item_ty)), index.list.clone());
+                let new_list =
+                    self.infer(Type::List(Box::new(item_ty.clone())), index.list.clone())?;
+                Ok(TypedExpr(
+                    spanned! {
+                        expr.span,
+                        Box::new(InnerExpr::ListIndex(TypedListIndex {
+                            list: new_list,
+                            index: new_index,
+                        }))
+                    },
+                    item_ty,
+                ))
+            }
+            Expr::UnaryOp(unary_op) => {
+                let value_ty = match unary_op.op {
+                    UnOp::Not => Type::Bool,
+                    UnOp::Negate => Type::Int,
+                };
+                let new_value = self.infer(value_ty.clone(), unary_op.value.clone())?;
+                Ok(TypedExpr(
+                    spanned! {
+                    expr.span,
+                    Box::new(InnerExpr::UnaryOp(TypedUnaryOp {
+                        op: unary_op.op.clone(),
+                        value: new_value
+                    }))},
+                    value_ty,
+                ))
+            }
+            Expr::BinaryOp(binary_op) => {
+                let value_ty = match binary_op.op {
+                    BinOp::Add => todo!(),
+                    BinOp::Sub => todo!(),
+                    BinOp::Mul => todo!(),
+                    BinOp::Div => todo!(),
+                    BinOp::Mod => todo!(),
+                    BinOp::And => todo!(),
+                    BinOp::Or => todo!(),
+                    BinOp::Xor => todo!(),
+                    BinOp::Lt => todo!(),
+                    BinOp::Leq => todo!(),
+                    BinOp::Gt => todo!(),
+                    BinOp::Geq => todo!(),
+                    BinOp::Eq => todo!(),
+                    BinOp::Neq => todo!(),
+                    BinOp::Pipe => todo!(),
+                    BinOp::Concat => todo!(),
+                };
                 todo!()
             }
-            Expr::UnaryOp(_) => todo!(),
-            Expr::BinaryOp(_) => todo!(),
             Expr::FunCall(_) => todo!(),
             Expr::Closure(_) => todo!(),
             Expr::IfThen(_) => todo!(),

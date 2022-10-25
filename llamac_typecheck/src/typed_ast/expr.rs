@@ -12,7 +12,7 @@ use crate::ty::Type;
 use super::stmt::TypedStmt;
 
 #[derive(Clone)]
-pub struct TypedExpr(Spanned<Box<InnerExpr>>, Type);
+pub struct TypedExpr(pub Spanned<Box<InnerExpr>>, pub Type);
 
 impl Display for TypedExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
