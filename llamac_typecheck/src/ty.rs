@@ -1,9 +1,6 @@
 use std::fmt::{self, Display};
 
-use llamac_ast::{
-    stmt::TypeExpr,
-    utils::{FmtItems, Spanned},
-};
+use llamac_ast::{stmt::TypeExpr, utils::FmtItems};
 
 #[derive(Clone)]
 pub enum Type {
@@ -19,8 +16,11 @@ pub enum Type {
     Int,
     Float,
     String,
-    // Represents a currently unknown type
+    // Unknown types
     TypeVar(usize),
+    Number,
+    Comparable,
+    Concatenable,
 }
 
 impl Display for Type {
@@ -35,7 +35,10 @@ impl Display for Type {
             Type::Int => f.write_str("Int"),
             Type::Float => f.write_str("Float"),
             Type::String => f.write_str("String"),
-            Type::TypeVar(id) => write!(f, "${id}"),
+            Type::TypeVar(id) => write!(f, "$t{id}"),
+            Type::Number => write!(f, "$Number"),
+            Type::Comparable => write!(f, "$Comparable"),
+            Type::Concatenable => write!(f, "$Concatenable"),
         }
     }
 }

@@ -133,12 +133,12 @@ pub struct TypedClosure {
 
 impl Display for TypedClosure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "fn {} : {} => {}", self.params, self.ret_ty, self.body)
+        write!(f, "fun {} : {} => {}", self.params, self.ret_ty, self.body)
     }
 }
 
 #[derive(Clone)]
-pub struct TypedClosureParams(pub Vec<Spanned<TypedClosureParam>>);
+pub struct TypedClosureParams(pub Vec<TypedClosureParam>);
 
 impl Display for TypedClosureParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -193,7 +193,7 @@ impl Display for TypedCond {
 }
 
 #[derive(Clone)]
-pub struct TypedCondArms(pub Vec<Spanned<TypedCondArm>>);
+pub struct TypedCondArms(pub Vec<TypedCondArm>);
 
 impl Display for TypedCondArms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
