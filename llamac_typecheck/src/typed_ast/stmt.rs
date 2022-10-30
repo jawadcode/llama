@@ -8,7 +8,7 @@ use llamac_ast::{
 
 use crate::ty::Type;
 
-use super::expr::{TypedCond, TypedExpr, TypedIfThen, TypedMatch};
+use super::expr::{TypedCondArms, TypedExpr, TypedMatch};
 
 pub type TypedStmt = Spanned<InnerStmt>;
 
@@ -17,8 +17,8 @@ pub enum InnerStmt {
     Const(TypedConst),
     LetBind(TypedLetBind),
     FunDef(TypedFunDef),
-    IfThen(TypedIfThen),
-    Cond(TypedCond),
+    IfThen(TypedIfThenStmt),
+    Cond(TypedCondStmt),
     Match(TypedMatch),
 }
 
@@ -97,5 +97,38 @@ pub struct TypedFunParam {
 impl Display for TypedFunParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} : {}", self.name, self.ty)
+    }
+}
+
+#[derive(Clone)]
+pub struct TypedIfThenStmt {
+    pub cond: TypedExpr,
+    pub then: TypedExpr,
+    pub r#else: Option<TypedExpr>,
+}
+
+impl Display for TypedIfThenStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "if {} then {}", self.cond, self.then)?;
+        if let Some(r#else) = &self.r#else {
+            write!(f, " else {}", r#else)?;
+        }
+        f.write_str(" end")
+    }
+}
+
+#[derive(Clone)]
+pub struct TypedCondStmt {
+    pub arms: Spanned<TypedCondArms>,
+    pub r#else: Option<TypedExpr>,
+}
+
+impl Display for TypedCondStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "cond {}", self.arms)?;
+        if let Some(r#else) = &self.r#else {
+            write!(f, " | else => {}", r#else)?;
+        }
+        f.write_str(" end")
     }
 }

@@ -245,10 +245,10 @@ impl Parser<'_> {
         let mut arms = Vec::new();
         while !self.at(TK::End) {
             let pipe = self.expect(TK::Pipe)?;
-            let pattern = self.parse_match_pattern()?;
+            let patterns = self.parse_match_patterns()?;
             self.expect(TK::FatArrow)?;
             let branch = self.parse_expr()?;
-            arms.push(spanned! {pipe.span + branch.span, MatchArm { pattern, branch }});
+            arms.push(spanned! {pipe.span + branch.span, MatchArm { patterns, branch }});
         }
         let span = {
             let first = arms.first().unwrap();
@@ -260,12 +260,16 @@ impl Parser<'_> {
         Ok(spanned! {r#match.span + end.span, Match { expr, arms }})
     }
 
-    fn parse_match_pattern(&mut self) -> ParseResult<Spanned<MatchPatterns>> {
+    fn parse_match_patterns(&mut self) -> ParseResult<Spanned<MatchPatterns>> {
         let mut pattern = Vec::new();
         while !self.at(TK::FatArrow) {
             let start = self.next_token()?;
             let pat = match start.kind {
                 TK::Star => spanned! {start.span, MatchPattern::Wildcard},
+                TK::Ident => {
+                    let text = start.text(self.source);
+                    spanned! {start.span, MatchPattern::NamedWildcard(Ident::new(text))}
+                }
                 TK::UnitLit | TK::True | TK::False | TK::IntLit | TK::FloatLit | TK::StringLit => {
                     self.parse_lit()?.map(MatchPattern::Literal)
                 }

@@ -5,11 +5,11 @@ use std::{
 
 use llamac_ast::{
     expr::{
-        BinOp, BinaryOp, Closure, Cond, Expr, FunCall, IfThen, List, ListIndex, Literal, SpanExpr,
-        UnOp, UnaryOp,
+        BinOp, BinaryOp, Closure, Cond, Expr, FunCall, IfThen, List, ListIndex, Literal, Match,
+        MatchArm, MatchPattern, SpanExpr, UnOp, UnaryOp,
     },
     spanned,
-    stmt::{Const, FunDef, LetBind, SpanStmt, Stmt},
+    stmt::{Const, FunDef, FunParam, LetBind, SpanStmt, Stmt},
     utils::{Span, Spanned},
     Ident,
 };
@@ -19,10 +19,13 @@ use crate::{
     typed_ast::{
         expr::{
             InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams,
-            TypedCondArm, TypedExpr, TypedFunArgs, TypedFunCall, TypedIfThen, TypedList,
-            TypedListIndex, TypedUnaryOp,
+            TypedCond, TypedCondArm, TypedCondArms, TypedExpr, TypedFunArgs, TypedFunCall,
+            TypedIfThen, TypedList, TypedListIndex, TypedMatchArm, TypedMatchPattern, TypedUnaryOp,
         },
-        stmt::{InnerStmt, TypedConst, TypedLetBind, TypedStmt},
+        stmt::{
+            InnerStmt, TypedCondStmt, TypedConst, TypedFunDef, TypedFunParam, TypedFunParams,
+            TypedIfThenStmt, TypedLetBind, TypedStmt,
+        },
     },
 };
 
@@ -59,6 +62,7 @@ pub struct Engine {
 
 pub enum TypeError {
     NotInScope(Ident, Span),
+    MissingElseBranch(Span),
 }
 
 pub type InferResult<T> = Result<T, TypeError>;
@@ -101,10 +105,91 @@ impl Engine {
                 ret_ty,
                 body,
             }) => {
-                todo!()
+                let ty = Type::Fun {
+                    params: params
+                        .node
+                        .0
+                        .iter()
+                        .map(
+                            |Spanned {
+                                 span: _,
+                                 node: FunParam { name: _, annot },
+                             }| (&annot.node).into(),
+                        )
+                        .collect(),
+                    ret_ty: Box::new((&ret_ty.node).into()),
+                };
+                let new_params = spanned! {
+                    params.span,
+                    TypedFunParams(params
+                        .node
+                        .0
+                        .iter()
+                        .map(
+                            |Spanned {
+                                 span,
+                                 node: FunParam { name, annot },
+                             }| spanned! {
+                                span.start..span.end,
+                                TypedFunParam {
+                                    name: name.clone(),
+                                    ty: spanned! {annot.span, (&annot.node).into() },
+                                }
+                            },
+                        )
+                        .collect::<Vec<_>>())
+                };
+                let new_body = self.infer_expr((&ret_ty.node).into(), body.clone())?;
+                self.insert_var(name.clone().node, ty.clone());
+                Ok(spanned! {
+                    stmt.span,
+                    InnerStmt::FunDef(TypedFunDef {
+                        name: name.clone(),
+                        params: new_params,
+                        ret_ty: spanned! {ret_ty.span, (&ret_ty.node).into()},
+                        body: new_body,
+                    })
+                })
             }
-            Stmt::IfThen(_) => todo!(),
-            Stmt::Cond(_) => todo!(),
+            Stmt::IfThen(IfThen { cond, then, r#else }) => {
+                let new_cond = self.infer_expr(Type::Bool, cond.clone())?;
+                let new_then = self.infer_expr(Type::Unit, then.clone())?;
+                let new_else = match r#else {
+                    Some(r#else) => Some(self.infer_expr(Type::Unit, r#else.clone())?),
+                    None => None,
+                };
+                Ok(spanned! {
+                    stmt.span,
+                    InnerStmt::IfThen(TypedIfThenStmt {
+                        cond: new_cond,
+                        then: new_then,
+                        r#else: new_else,
+                    })
+                })
+            }
+            Stmt::Cond(Cond { arms, r#else }) => {
+                let mut new_arms = Vec::new();
+                for arm in arms.node.0.clone() {
+                    let new_cond = self.infer_expr(Type::Bool, arm.node.cond)?;
+                    let new_branch = self.infer_expr(Type::Unit, arm.node.branch)?;
+                    new_arms.push(TypedCondArm {
+                        cond: new_cond,
+                        branch: new_branch,
+                    });
+                }
+                let new_arms = spanned! {arms.span, TypedCondArms(new_arms)};
+                let new_else = match r#else {
+                    Some(r#else) => Some(self.infer_expr(Type::Unit, r#else.clone())?),
+                    None => None,
+                };
+                Ok(spanned! {
+                    stmt.span,
+                    InnerStmt::Cond(TypedCondStmt {
+                        arms: new_arms,
+                        r#else: new_else,
+                    })
+                })
+            }
             Stmt::Match(_) => todo!(),
         }
     }
@@ -385,10 +470,10 @@ impl Engine {
                 let then_ty = self.fresh_typevar();
                 let new_then = self.infer_expr(then_ty.clone(), then.clone())?;
                 let else_ty = self.fresh_typevar();
-                let new_else = match r#else {
-                    Some(r#else) => Some(self.infer_expr(else_ty.clone(), r#else.clone())?),
-                    None => None,
-                };
+                let r#else = r#else
+                    .clone()
+                    .ok_or(TypeError::MissingElseBranch(expr.span))?;
+                let new_else = self.infer_expr(else_ty.clone(), r#else)?;
                 self.constraints
                     .push(Constraint::Equality(then_ty, else_ty));
                 Ok(TypedExpr(
@@ -405,19 +490,67 @@ impl Engine {
             }
             Expr::Cond(Cond { arms, r#else }) => {
                 let mut new_arms = Vec::new();
-                for arm in arms.node.0.clone() {
-                    let new_cond = self.infer_expr(Type::Bool, arm.node.cond)?;
-                    let branch_ty = self.fresh_typevar();
-                    let new_branch = self.infer_expr(branch_ty.clone(), arm.node.branch)?;
+                if let Some(first_arm) = arms.node.0.first().cloned() {
+                    let first_new_cond = self.infer_expr(Type::Bool, first_arm.node.cond)?;
+                    let first_branch_ty = self.fresh_typevar();
+                    let first_new_branch =
+                        self.infer_expr(first_branch_ty.clone(), first_arm.node.branch)?;
                     new_arms.push(TypedCondArm {
-                        cond: new_cond,
-                        branch: new_branch,
+                        cond: first_new_cond,
+                        branch: first_new_branch,
                     });
+                    for arm in arms.node.0.clone() {
+                        let new_cond = self.infer_expr(Type::Bool, arm.node.cond)?;
+                        let branch_ty = self.fresh_typevar();
+                        let new_branch = self.infer_expr(branch_ty.clone(), arm.node.branch)?;
+                        self.constraints
+                            .push(Constraint::Equality(first_branch_ty.clone(), branch_ty));
+                        new_arms.push(TypedCondArm {
+                            cond: new_cond,
+                            branch: new_branch,
+                        });
+                    }
                 }
-                for arm in new_arms {}
+                let new_arms = spanned! {arms.span, TypedCondArms(new_arms)};
+
+                let r#else = r#else
+                    .clone()
+                    .ok_or(TypeError::MissingElseBranch(expr.span))?;
+                let else_branch_ty = self.fresh_typevar();
+                let new_else = self.infer_expr(else_branch_ty, r#else)?;
+                Ok(TypedExpr(
+                    spanned! {
+                        expr.span,
+                        Box::new(InnerExpr::Cond(TypedCond {
+                            arms: new_arms,
+                            r#else: new_else,
+                        }))
+                    },
+                    expected,
+                ))
+            }
+            Expr::Match(Match { expr, arms }) => {
+                // I have no idea how exhaustivity checking works so I'm literally just going to check that there exists some kind of wildcard pattern
+                let expr_ty = self.fresh_typevar();
+                let new_expr = self.infer_expr(expr_ty, expr.clone())?;
+
+                let mut new_arms: Vec<TypedMatchArm> = Vec::new();
+                for Spanned {
+                    span,
+                    node: MatchArm { patterns, branch },
+                } in arms.node.0.iter()
+                {
+                    let mut new_patterns: Vec<TypedMatchPattern> = Vec::new();
+                    for pattern in patterns.node.0.iter() {
+                        let pattern_ty = match pattern.node {
+                            MatchPattern::Wildcard => todo!(),
+                            MatchPattern::NamedWildcard(_) => todo!(),
+                            MatchPattern::Literal(_) => todo!(),
+                        };
+                    }
+                }
                 todo!()
             }
-            Expr::Match(_) => todo!(),
             Expr::Block(_) => todo!(),
             Expr::Stmt(_) => todo!(),
         }

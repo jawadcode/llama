@@ -162,33 +162,28 @@ impl Display for TypedClosureParam {
 pub struct TypedIfThen {
     pub cond: TypedExpr,
     pub then: TypedExpr,
-    pub r#else: Option<TypedExpr>,
+    pub r#else: TypedExpr,
 }
 
 impl Display for TypedIfThen {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "if {} then {}", self.cond, self.then)?;
-        if let Some(r#else) = &self.r#else {
-            write!(f, " else {}", r#else)
-        } else {
-            Ok(())
-        }
+        write!(
+            f,
+            "if {} then {} else {}",
+            self.cond, self.then, self.r#else
+        )
     }
 }
 
 #[derive(Clone)]
 pub struct TypedCond {
     pub arms: Spanned<TypedCondArms>,
-    pub r#else: Option<TypedExpr>,
+    pub r#else: TypedExpr,
 }
 
 impl Display for TypedCond {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "cond {}", self.arms)?;
-        if let Some(r#else) = &self.r#else {
-            write!(f, " | else => {}", r#else)?;
-        }
-        f.write_str(" end")
+        write!(f, "cond {} | else => {} end", self.arms, self.r#else)
     }
 }
 
@@ -236,18 +231,18 @@ impl Display for TypedMatchArms {
 
 #[derive(Clone)]
 pub struct TypedMatchArm {
-    pub pattern: Spanned<TypedMatchPatterns>,
+    pub patterns: Spanned<TypedMatchPatterns>,
     pub branch: TypedExpr,
 }
 
 impl Display for TypedMatchArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "| {} => {}", self.pattern, self.branch)
+        write!(f, "| {} => {}", self.patterns, self.branch)
     }
 }
 
 #[derive(Clone)]
-pub struct TypedMatchPatterns(pub Vec<Spanned<TypedMatchPattern>>);
+pub struct TypedMatchPatterns(pub Vec<TypedMatchPattern>);
 
 impl Display for TypedMatchPatterns {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -257,7 +252,7 @@ impl Display for TypedMatchPatterns {
 
 #[derive(Clone)]
 pub struct TypedMatchPattern {
-    pub pattern: MatchPattern,
+    pub pattern: Spanned<MatchPattern>,
     pub ty: Type,
 }
 

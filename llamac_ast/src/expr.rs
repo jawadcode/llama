@@ -352,14 +352,14 @@ impl Display for MatchArms {
 
 #[derive(Clone)]
 pub struct MatchArm {
-    pub pattern: Spanned<MatchPatterns>,
+    pub patterns: Spanned<MatchPatterns>,
     pub branch: SpanExpr,
 }
 
 impl Display for MatchArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("| ")?;
-        self.pattern.fmt(f)?;
+        self.patterns.fmt(f)?;
         f.write_str(" => ")?;
         self.branch.fmt(f)
     }
@@ -377,6 +377,7 @@ impl Display for MatchPatterns {
 #[derive(Clone)]
 pub enum MatchPattern {
     Wildcard,
+    NamedWildcard(Ident),
     Literal(Literal),
 }
 
@@ -384,6 +385,7 @@ impl Display for MatchPattern {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MatchPattern::Wildcard => f.write_str("*"),
+            MatchPattern::NamedWildcard(name) => name.fmt(f),
             MatchPattern::Literal(literal) => literal.fmt(f),
         }
     }

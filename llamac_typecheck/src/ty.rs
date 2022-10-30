@@ -1,6 +1,9 @@
 use std::fmt::{self, Display};
 
-use llamac_ast::{stmt::TypeExpr, utils::FmtItems};
+use llamac_ast::{
+    stmt::TypeExpr,
+    utils::{FmtItems, Spanned},
+};
 
 #[derive(Clone)]
 pub enum Type {
@@ -44,8 +47,8 @@ impl Display for Type {
 }
 
 impl From<&TypeExpr> for Type {
-    fn from(tyexpr: &TypeExpr) -> Self {
-        match tyexpr {
+    fn from(ty_expr: &TypeExpr) -> Self {
+        match ty_expr {
             TypeExpr::Fun { params, ret_ty } => {
                 let params: Vec<Self> = params
                     .node
