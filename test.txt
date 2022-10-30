@@ -3,4 +3,4 @@ fun fib(n : Int) : Int =
 		then n
 		else fib(n - 2) + fib(n - 1)
 
-fun main() = print_number(fib(21))
+fun main() = print_int(fib(21))
