@@ -9,16 +9,20 @@ use llamac_ast::{
         UnOp, UnaryOp,
     },
     spanned,
+    stmt::{Const, FunDef, LetBind, SpanStmt, Stmt},
     utils::{Span, Spanned},
     Ident,
 };
 
 use crate::{
     ty::Type,
-    typed_ast::expr::{
-        InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams,
-        TypedCondArm, TypedExpr, TypedFunArgs, TypedFunCall, TypedIfThen, TypedList,
-        TypedListIndex, TypedUnaryOp,
+    typed_ast::{
+        expr::{
+            InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams,
+            TypedCondArm, TypedExpr, TypedFunArgs, TypedFunCall, TypedIfThen, TypedList,
+            TypedListIndex, TypedUnaryOp,
+        },
+        stmt::{InnerStmt, TypedConst, TypedLetBind, TypedStmt},
     },
 };
 
@@ -60,7 +64,52 @@ pub enum TypeError {
 pub type InferResult<T> = Result<T, TypeError>;
 
 impl Engine {
-    pub fn infer(&mut self, expected: Type, expr: SpanExpr) -> InferResult<TypedExpr> {
+    fn infer_stmt(&mut self, stmt: SpanStmt) -> InferResult<TypedStmt> {
+        match &stmt.node {
+            Stmt::Const(Const { name, annot, value }) => {
+                let ty: Type = (&annot.node).into();
+                let new_value = self.infer_expr(ty.clone(), value.clone())?;
+                self.insert_var(name.clone().node, ty.clone());
+                Ok(spanned! {
+                    stmt.span,
+                    InnerStmt::Const(TypedConst {
+                        name: name.clone(),
+                        annot: spanned! {annot.span, ty},
+                        value: new_value
+                    })
+                })
+            }
+            Stmt::LetBind(LetBind { name, annot, value }) => {
+                let ty = match annot {
+                    Some(ty_expr) => spanned! {ty_expr.span, (&ty_expr.node).into()},
+                    None => spanned! {name.span.end..name.span.end, self.fresh_typevar()},
+                };
+                let new_value = self.infer_expr(ty.node.clone(), value.clone())?;
+                self.insert_var(name.clone().node, ty.node.clone());
+                Ok(spanned! {
+                    stmt.span,
+                    InnerStmt::LetBind(TypedLetBind {
+                        name: name.clone(),
+                        annot: ty,
+                        value: new_value
+                    })
+                })
+            }
+            Stmt::FunDef(FunDef {
+                name,
+                params,
+                ret_ty,
+                body,
+            }) => {
+                todo!()
+            }
+            Stmt::IfThen(_) => todo!(),
+            Stmt::Cond(_) => todo!(),
+            Stmt::Match(_) => todo!(),
+        }
+    }
+
+    fn infer_expr(&mut self, expected: Type, expr: SpanExpr) -> InferResult<TypedExpr> {
         match expr.node.as_ref() {
             Expr::Ident(ident) => {
                 let ty = self.get_var(&ident, expr.span)?;
@@ -98,7 +147,7 @@ impl Engine {
                 for item in list
                     .clone()
                     .into_iter()
-                    .map(|item| self.infer(item_ty.clone(), item))
+                    .map(|item| self.infer_expr(item_ty.clone(), item))
                 {
                     new_items.push(item?);
                 }
@@ -115,9 +164,9 @@ impl Engine {
                 ))
             }
             Expr::ListIndex(ListIndex { list, index }) => {
-                let new_index = self.infer(Type::Int, index.clone())?;
+                let new_index = self.infer_expr(Type::Int, index.clone())?;
                 let list_ty = Type::List(Box::new(self.fresh_typevar()));
-                let new_list = self.infer(list_ty.clone(), list.clone())?;
+                let new_list = self.infer_expr(list_ty.clone(), list.clone())?;
                 self.constraints
                     .push(Constraint::Equality(expected.clone(), list_ty));
                 Ok(TypedExpr(
@@ -136,7 +185,7 @@ impl Engine {
                     UnOp::Not => Type::Bool,
                     UnOp::Negate => Type::Int,
                 };
-                let new_value = self.infer(value_ty.clone(), value.clone())?;
+                let new_value = self.infer_expr(value_ty.clone(), value.clone())?;
                 self.constraints
                     .push(Constraint::Equality(expected.clone(), value_ty));
                 Ok(TypedExpr(
@@ -152,8 +201,8 @@ impl Engine {
             }
             Expr::BinaryOp(BinaryOp { op, lhs, rhs }) => match op {
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => {
-                    let new_lhs = self.infer(Type::Number, lhs.clone())?;
-                    let new_rhs = self.infer(Type::Number, rhs.clone())?;
+                    let new_lhs = self.infer_expr(Type::Number, lhs.clone())?;
+                    let new_rhs = self.infer_expr(Type::Number, rhs.clone())?;
                     self.constraints
                         .push(Constraint::Equality(expected.clone(), Type::Number));
                     self.constraints.push(Constraint::Triple {
@@ -174,8 +223,8 @@ impl Engine {
                     ))
                 }
                 BinOp::Mod => {
-                    let new_lhs = self.infer(Type::Int, lhs.clone())?;
-                    let new_rhs = self.infer(Type::Int, rhs.clone())?;
+                    let new_lhs = self.infer_expr(Type::Int, lhs.clone())?;
+                    let new_rhs = self.infer_expr(Type::Int, rhs.clone())?;
                     self.constraints
                         .push(Constraint::Equality(expected.clone(), Type::Int));
                     Ok(TypedExpr(
@@ -191,8 +240,8 @@ impl Engine {
                     ))
                 }
                 BinOp::And | BinOp::Or | BinOp::Xor => {
-                    let new_lhs = self.infer(Type::Bool, lhs.clone())?;
-                    let new_rhs = self.infer(Type::Bool, rhs.clone())?;
+                    let new_lhs = self.infer_expr(Type::Bool, lhs.clone())?;
+                    let new_rhs = self.infer_expr(Type::Bool, rhs.clone())?;
                     self.constraints
                         .push(Constraint::Equality(expected.clone(), Type::Bool));
                     Ok(TypedExpr(
@@ -208,8 +257,8 @@ impl Engine {
                     ))
                 }
                 BinOp::Lt | BinOp::Leq | BinOp::Gt | BinOp::Geq | BinOp::Eq | BinOp::Neq => {
-                    let new_lhs = self.infer(Type::Comparable, lhs.clone())?;
-                    let new_rhs = self.infer(Type::Comparable, rhs.clone())?;
+                    let new_lhs = self.infer_expr(Type::Comparable, lhs.clone())?;
+                    let new_rhs = self.infer_expr(Type::Comparable, rhs.clone())?;
                     self.constraints
                         .push(Constraint::Equality(new_lhs.1.clone(), new_rhs.1.clone()));
                     self.constraints
@@ -230,8 +279,8 @@ impl Engine {
                     todo!("Couldn't be bothered implementing type inference for function pipes lol")
                 }
                 BinOp::Concat => {
-                    let new_lhs = self.infer(Type::Concatenable, lhs.clone())?;
-                    let new_rhs = self.infer(Type::Concatenable, rhs.clone())?;
+                    let new_lhs = self.infer_expr(Type::Concatenable, lhs.clone())?;
+                    let new_rhs = self.infer_expr(Type::Concatenable, rhs.clone())?;
                     self.constraints
                         .push(Constraint::Equality(expected.clone(), Type::Concatenable));
                     self.constraints.push(Constraint::Triple {
@@ -259,11 +308,11 @@ impl Engine {
                     params: args_tys.clone(),
                     ret_ty: Box::new(expected.clone()),
                 };
-                let new_fun = self.infer(fun_ty, fun.clone())?;
+                let new_fun = self.infer_expr(fun_ty, fun.clone())?;
                 let new_args_iter = args.node.0.iter().zip(&args_tys);
                 let mut new_args = Vec::new();
                 for (expr, ty) in new_args_iter {
-                    new_args.push(self.infer(ty.clone(), expr.clone())?);
+                    new_args.push(self.infer_expr(ty.clone(), expr.clone())?);
                 }
                 Ok(TypedExpr(
                     spanned! {
@@ -311,7 +360,7 @@ impl Engine {
                 for TypedClosureParam { name, ty } in new_params.node.0.clone() {
                     self.insert_var(name.node, ty)
                 }
-                let new_body = self.infer(new_ret_ty.node.clone(), body.clone())?;
+                let new_body = self.infer_expr(new_ret_ty.node.clone(), body.clone())?;
                 self.constraints.push(Constraint::Equality(
                     expected.clone(),
                     Type::Fun {
@@ -332,12 +381,12 @@ impl Engine {
                 ))
             }
             Expr::IfThen(IfThen { cond, then, r#else }) => {
-                let new_cond = self.infer(Type::Bool, cond.clone())?;
+                let new_cond = self.infer_expr(Type::Bool, cond.clone())?;
                 let then_ty = self.fresh_typevar();
-                let new_then = self.infer(then_ty.clone(), then.clone())?;
+                let new_then = self.infer_expr(then_ty.clone(), then.clone())?;
                 let else_ty = self.fresh_typevar();
                 let new_else = match r#else {
-                    Some(r#else) => Some(self.infer(else_ty.clone(), r#else.clone())?),
+                    Some(r#else) => Some(self.infer_expr(else_ty.clone(), r#else.clone())?),
                     None => None,
                 };
                 self.constraints
@@ -357,9 +406,9 @@ impl Engine {
             Expr::Cond(Cond { arms, r#else }) => {
                 let mut new_arms = Vec::new();
                 for arm in arms.node.0.clone() {
-                    let new_cond = self.infer(Type::Bool, arm.node.cond)?;
+                    let new_cond = self.infer_expr(Type::Bool, arm.node.cond)?;
                     let branch_ty = self.fresh_typevar();
-                    let new_branch = self.infer(branch_ty.clone(), arm.node.branch)?;
+                    let new_branch = self.infer_expr(branch_ty.clone(), arm.node.branch)?;
                     new_arms.push(TypedCondArm {
                         cond: new_cond,
                         branch: new_branch,

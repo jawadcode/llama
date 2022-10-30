@@ -47,6 +47,37 @@ const EXPR_TERMINATORS: [TK; 12] = [
 
 impl Parser<'_> {
     pub(super) fn parse_expr(&mut self) -> ParseResult<SpanExpr> {
+        let mut lhs = self.parse_operand()?;
+
+        loop {
+            let peeked = self.peek();
+            let op: BinOp = if BIN_OPS.contains(&peeked) {
+                self.lexer.next().unwrap();
+                peeked.into()
+            } else if EXPR_TERMINATORS.contains(&peeked) {
+                break;
+            } else {
+                return Err(SyntaxError::UnexpectedToken {
+                    expected: "operator or expression terminator".to_string(),
+                    got: self.next_token()?,
+                });
+            };
+
+            let rhs = self.parse_operand()?;
+            lhs = spanned! {
+                lhs.span + rhs.span,
+                Box::new(Expr::BinaryOp(BinaryOp {
+                    op: op.into(),
+                    lhs,
+                    rhs,
+                }))
+            };
+        }
+
+        Ok(lhs)
+    }
+
+    fn parse_operand(&mut self) -> ParseResult<SpanExpr> {
         let mut lhs = match self.peek() {
             TK::UnitLit | TK::True | TK::False | TK::IntLit | TK::FloatLit | TK::StringLit => {
                 self.parse_lit()?.map(Expr::Literal)
@@ -84,27 +115,16 @@ impl Parser<'_> {
             }
 
             let peeked = self.peek();
-            let op: BinOp = if BIN_OPS.contains(&peeked) {
-                self.lexer.next().unwrap();
-                peeked.into()
-            } else if EXPR_TERMINATORS.contains(&peeked) {
+            if BIN_OPS.contains(&peeked) || EXPR_TERMINATORS.contains(&peeked) {
                 break;
+            } else if [TK::LParen, TK::LSquare].contains(&peeked) {
+                continue;
             } else {
                 return Err(SyntaxError::UnexpectedToken {
                     expected: "operator or expression terminator".to_string(),
                     got: self.next_token()?,
                 });
-            };
-
-            let rhs = self.parse_expr()?;
-            lhs = spanned! {
-                lhs.span + rhs.span,
-                Box::new(Expr::BinaryOp(BinaryOp {
-                    op: op.into(),
-                    lhs,
-                    rhs,
-                }))
-            };
+            }
         }
 
         Ok(lhs)
@@ -119,6 +139,7 @@ impl Parser<'_> {
             TK::False => Literal::Bool(false),
             TK::IntLit => Literal::Int(text.parse::<i64>().unwrap()),
             TK::FloatLit => Literal::Float(text.parse::<f64>().unwrap()),
+            TK::StringLit => Literal::String(text[1..(text.len() - 1)].to_string()),
             _ => unreachable!(),
         };
         Ok(spanned! {token.span, lit})
@@ -169,7 +190,7 @@ impl Parser<'_> {
             None
         };
         let params = spanned! {params_span, ClosureParams(params)};
-        self.expect(TK::Arrow)?;
+        self.expect(TK::FatArrow)?;
         let body = self.parse_expr()?;
         Ok(spanned! {r#fn.span + body.span, Closure { params, ret_ty, body }})
     }
@@ -268,7 +289,7 @@ impl Parser<'_> {
         Ok(spanned! {span, MatchPatterns(pattern)})
     }
 
-    fn parse_block(&mut self) -> ParseResult<Spanned<Block>> {
+    pub(super) fn parse_block(&mut self) -> ParseResult<Spanned<Block>> {
         let r#do = self.lexer.next().unwrap();
         let mut exprs = Vec::new();
         while !self.at(TK::End) {
@@ -309,7 +330,10 @@ impl Parser<'_> {
         while !self.at(TK::RParen) {
             let arg = self.parse_expr()?;
             args.push(arg);
-            if !self.at(TK::Comma) {
+
+            if self.at(TK::Comma) {
+                self.lexer.next().unwrap();
+            } else {
                 break;
             }
         }

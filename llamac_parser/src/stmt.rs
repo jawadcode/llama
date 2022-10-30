@@ -1,4 +1,5 @@
 use llamac_ast::{
+    expr::Expr,
     spanned,
     stmt::{Const, FunDef, FunParam, FunParams, LetBind, SpanStmt, Stmt, TypeExpr, TypeExprs},
     utils::{Span, Spanned},
@@ -67,9 +68,25 @@ impl Parser<'_> {
         } else {
             spanned! {rparen.span.end..rparen.span.end, TypeExpr::Unit}
         };
-        self.expect(TK::Assign)?;
-        let body = self.parse_expr()?;
-        Ok(spanned! {fun.span.start..body.span.end, FunDef { name, params, ret_ty, body }})
+        match self.peek() {
+            TK::Assign => {
+                self.lexer.next().unwrap();
+                let body = self.parse_expr()?;
+                Ok(spanned! {fun.span.start..body.span.end, FunDef { name, params, ret_ty, body }})
+            }
+            TK::Do => {
+                let body = self
+                    .parse_block()?
+                    .map(|block| Box::new(Expr::Block(block)));
+                Ok(spanned! {fun.span.start..body.span.end, FunDef { name, params, ret_ty, body }})
+            }
+            _ => {
+                return Err(SyntaxError::UnexpectedToken {
+                    expected: "'=' or block expression".to_string(),
+                    got: self.next_token()?,
+                })
+            }
+        }
     }
 
     pub(super) fn parse_type(&mut self) -> ParseResult<Spanned<TypeExpr>> {
@@ -109,5 +126,18 @@ impl Parser<'_> {
         let item = self.parse_type()?.map(Box::new);
         let rsquare = self.expect(TK::RSquare)?;
         Ok(spanned! {name + rsquare.span, TypeExpr::List(item)})
+    }
+}
+
+#[test]
+fn test() {
+    use std::io;
+    loop {
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        match Parser::new(&input).parse_stmt() {
+            Ok(stmt) => println!("{stmt}"),
+            Err(err) => err.report("stdin".to_string(), &input),
+        }
     }
 }

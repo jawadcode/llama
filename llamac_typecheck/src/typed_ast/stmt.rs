@@ -10,8 +10,10 @@ use crate::ty::Type;
 
 use super::expr::{TypedCond, TypedExpr, TypedIfThen, TypedMatch};
 
+pub type TypedStmt = Spanned<InnerStmt>;
+
 #[derive(Clone)]
-pub enum TypedStmt {
+pub enum InnerStmt {
     Const(TypedConst),
     LetBind(TypedLetBind),
     FunDef(TypedFunDef),
@@ -20,15 +22,15 @@ pub enum TypedStmt {
     Match(TypedMatch),
 }
 
-impl Display for TypedStmt {
+impl Display for InnerStmt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TypedStmt::Const(r#const) => r#const.fmt(f),
-            TypedStmt::LetBind(let_bind) => let_bind.fmt(f),
-            TypedStmt::FunDef(fun_def) => fun_def.fmt(f),
-            TypedStmt::IfThen(if_then) => parens_fmt!(f, if_then),
-            TypedStmt::Cond(cond) => parens_fmt!(f, cond),
-            TypedStmt::Match(r#match) => parens_fmt!(f, r#match),
+            InnerStmt::Const(r#const) => r#const.fmt(f),
+            InnerStmt::LetBind(let_bind) => let_bind.fmt(f),
+            InnerStmt::FunDef(fun_def) => fun_def.fmt(f),
+            InnerStmt::IfThen(if_then) => parens_fmt!(f, if_then),
+            InnerStmt::Cond(cond) => parens_fmt!(f, cond),
+            InnerStmt::Match(r#match) => parens_fmt!(f, r#match),
         }
     }
 }
@@ -49,13 +51,13 @@ impl Display for TypedConst {
 #[derive(Clone)]
 pub struct TypedLetBind {
     pub name: Spanned<Ident>,
-    pub ty: Spanned<Type>,
+    pub annot: Spanned<Type>,
     pub value: TypedExpr,
 }
 
 impl Display for TypedLetBind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "let {} : {} = {}", self.name, self.ty, self.value)
+        write!(f, "let {} : {} = {}", self.name, self.annot, self.value)
     }
 }
 
