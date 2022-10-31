@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 
 use llamac_ast::{
+    expr::Literal,
     stmt::TypeExpr,
     utils::{FmtItems, Spanned},
 };
@@ -65,6 +66,18 @@ impl From<&TypeExpr> for Type {
             TypeExpr::Int => Type::Int,
             TypeExpr::Float => Type::Float,
             TypeExpr::String => Type::String,
+        }
+    }
+}
+
+impl From<&Literal> for Type {
+    fn from(literal: &Literal) -> Self {
+        match literal {
+            Literal::Unit => Type::Unit,
+            Literal::String(_) => Type::String,
+            Literal::Int(_) => Type::Int,
+            Literal::Float(_) => Type::Float,
+            Literal::Bool(_) => Type::Bool,
         }
     }
 }

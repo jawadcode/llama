@@ -5,8 +5,8 @@ use std::{
 
 use llamac_ast::{
     expr::{
-        BinOp, BinaryOp, Closure, Cond, Expr, FunCall, IfThen, List, ListIndex, Literal, Match,
-        MatchArm, MatchPattern, SpanExpr, UnOp, UnaryOp,
+        BinOp, BinaryOp, Block, Closure, Cond, Expr, FunCall, IfThen, List, ListIndex, Literal,
+        Match, MatchArm, MatchPattern, SpanExpr, UnOp, UnaryOp,
     },
     spanned,
     stmt::{Const, FunDef, FunParam, LetBind, SpanStmt, Stmt},
@@ -18,9 +18,10 @@ use crate::{
     ty::Type,
     typed_ast::{
         expr::{
-            InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams,
-            TypedCond, TypedCondArm, TypedCondArms, TypedExpr, TypedFunArgs, TypedFunCall,
-            TypedIfThen, TypedList, TypedListIndex, TypedMatchArm, TypedMatchPattern, TypedUnaryOp,
+            InnerExpr, TypedBinaryOp, TypedBlock, TypedClosure, TypedClosureParam,
+            TypedClosureParams, TypedCond, TypedCondArm, TypedCondArms, TypedExpr, TypedFunArgs,
+            TypedFunCall, TypedIfThen, TypedList, TypedListIndex, TypedMatch, TypedMatchArm,
+            TypedMatchArms, TypedMatchPattern, TypedMatchPatterns, TypedUnaryOp,
         },
         stmt::{
             InnerStmt, TypedCondStmt, TypedConst, TypedFunDef, TypedFunParam, TypedFunParams,
@@ -532,27 +533,100 @@ impl Engine {
             Expr::Match(Match { expr, arms }) => {
                 // I have no idea how exhaustivity checking works so I'm literally just going to check that there exists some kind of wildcard pattern
                 let expr_ty = self.fresh_typevar();
-                let new_expr = self.infer_expr(expr_ty, expr.clone())?;
+                let new_expr = self.infer_expr(expr_ty.clone(), expr.clone())?;
 
-                let mut new_arms: Vec<TypedMatchArm> = Vec::new();
+                let mut new_arms = Vec::new();
                 for Spanned {
                     span,
                     node: MatchArm { patterns, branch },
                 } in arms.node.0.iter()
                 {
-                    let mut new_patterns: Vec<TypedMatchPattern> = Vec::new();
+                    let mut new_patterns = Vec::new();
                     for pattern in patterns.node.0.iter() {
-                        let pattern_ty = match pattern.node {
-                            MatchPattern::Wildcard => todo!(),
-                            MatchPattern::NamedWildcard(_) => todo!(),
-                            MatchPattern::Literal(_) => todo!(),
-                        };
+                        let pattern_ty = self.fresh_typevar();
+                        match &pattern.node {
+                            MatchPattern::Wildcard => (),
+                            MatchPattern::NamedWildcard(name) => {
+                                self.insert_var(name.clone(), pattern_ty.clone());
+                            }
+                            MatchPattern::Literal(literal) => {
+                                let ty: Type = literal.into();
+                                self.constraints
+                                    .push(Constraint::Equality(pattern_ty.clone(), ty));
+                            }
+                        }
+                        self.constraints
+                            .push(Constraint::Equality(pattern_ty.clone(), expr_ty.clone()));
+                        new_patterns.push(TypedMatchPattern {
+                            pattern: pattern.clone(),
+                            ty: pattern_ty,
+                        });
                     }
+                    let new_patterns = spanned! {patterns.span, TypedMatchPatterns(new_patterns)};
+
+                    let branch_ty = self.fresh_typevar();
+                    let new_branch = self.infer_expr(branch_ty.clone(), branch.clone())?;
+                    self.constraints
+                        .push(Constraint::Equality(branch_ty, expr_ty.clone()));
+                    new_arms.push(spanned! {
+                        *span,
+                        TypedMatchArm {
+                            patterns: new_patterns,
+                            branch: new_branch,
+                        }
+                    });
                 }
-                todo!()
+                let new_arms = spanned! {arms.span, TypedMatchArms(new_arms)};
+
+                Ok(TypedExpr(
+                    spanned! {
+                        expr.span,
+                        Box::new(InnerExpr::Match(TypedMatch {
+                            expr: new_expr,
+                            arms: new_arms
+                        }))
+                    },
+                    expected,
+                ))
             }
-            Expr::Block(_) => todo!(),
-            Expr::Stmt(_) => todo!(),
+            Expr::Block(Block(exprs)) => {
+                let mut new_exprs = Vec::new();
+                self.enter_scope();
+                for expr in exprs.iter() {
+                    let ty = self.fresh_typevar();
+                    let new_expr = self.infer_expr(ty, expr.clone())?;
+                    new_exprs.push(new_expr);
+                }
+                self.exit_scope();
+
+                if let Some(last_expr) = new_exprs.last() {
+                    self.constraints
+                        .push(Constraint::Equality(expected.clone(), last_expr.1.clone()));
+                } else {
+                    self.constraints
+                        .push(Constraint::Equality(expected.clone(), Type::Unit));
+                }
+
+                Ok(TypedExpr(
+                    spanned! {
+                        expr.span,
+                        Box::new(InnerExpr::Block(TypedBlock(new_exprs)))
+                    },
+                    expected,
+                ))
+            }
+            Expr::Stmt(stmt) => {
+                let new_stmt = self.infer_stmt(stmt.clone())?;
+                self.constraints
+                    .push(Constraint::Equality(expected.clone(), Type::Unit));
+                Ok(TypedExpr(
+                    spanned! {
+                        expr.span,
+                        Box::new(InnerExpr::Stmt(new_stmt))
+                    },
+                    expected,
+                ))
+            }
         }
     }
 
