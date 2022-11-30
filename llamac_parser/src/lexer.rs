@@ -1,4 +1,7 @@
-use std::fmt::{self, Display};
+use std::{
+    fmt::{self, Display},
+    io::Write,
+};
 
 use llamac_ast::utils::Span;
 use logos::{Logos, Skip, SpannedIter};
@@ -145,7 +148,7 @@ fn comment_lexer(lex: &mut logos::Lexer<TK>) -> Skip {
                 ('(', '*') => nesting += 1,
                 ('*', ')') if nesting > 0 => nesting -= 1,
                 ('*', ')') => {
-                    lex.bump(idx + 2);
+                    lex.bump(idx + 1);
                     return Skip;
                 }
                 _ => {}

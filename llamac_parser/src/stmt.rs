@@ -128,16 +128,3 @@ impl Parser<'_> {
         Ok(spanned! {name + rsquare.span, TypeExpr::List(item)})
     }
 }
-
-#[test]
-fn test() {
-    use std::io;
-    loop {
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-        match Parser::new(&input).parse_stmt() {
-            Ok(stmt) => println!("{stmt}"),
-            Err(err) => err.report("stdin".to_string(), &input),
-        }
-    }
-}
