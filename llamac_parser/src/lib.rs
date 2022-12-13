@@ -18,7 +18,7 @@ pub struct Parser<'source> {
 pub type ParseResult<T> = Result<T, SyntaxError>;
 
 impl<'source> Parser<'source> {
-    /// Returns a new parser which operates on `source`
+    /// Create a new parser which operates on `source`
     pub fn new(source: &'source str) -> Self {
         Self {
             source,
