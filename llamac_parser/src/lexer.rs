@@ -1,6 +1,5 @@
 use std::{
     fmt::{self, Display},
-    io::Write,
 };
 
 use llamac_ast::utils::Span;
