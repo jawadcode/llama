@@ -67,7 +67,7 @@ impl Parser<'_> {
             lhs = spanned! {
                 lhs.span + rhs.span,
                 Box::new(Expr::BinaryOp(BinaryOp {
-                    op: op.into(),
+                    op,
                     lhs,
                     rhs,
                 }))

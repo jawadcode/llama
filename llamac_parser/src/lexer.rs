@@ -1,6 +1,4 @@
-use std::{
-    fmt::{self, Display},
-};
+use std::fmt::{self, Display};
 
 use llamac_ast::utils::Span;
 use logos::{Logos, Skip, SpannedIter};

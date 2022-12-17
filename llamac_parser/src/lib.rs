@@ -29,7 +29,7 @@ impl<'source> Parser<'source> {
     /// Parse into a `llamac_ast::SourceFile`
     pub fn parse_file(&mut self, path: &Path) -> ParseResult<SourceFile> {
         let mut items = Vec::new();
-        while let Some(result) = self.next() {
+        for result in self.by_ref() {
             match result {
                 Ok(item) => {
                     items.push(item);

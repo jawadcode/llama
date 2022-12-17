@@ -80,12 +80,10 @@ impl Parser<'_> {
                     .map(|block| Box::new(Expr::Block(block)));
                 Ok(spanned! {fun.span.start..body.span.end, FunDef { name, params, ret_ty, body }})
             }
-            _ => {
-                return Err(SyntaxError::UnexpectedToken {
-                    expected: "'=' or block expression".to_string(),
-                    got: self.next_token()?,
-                })
-            }
+            _ => Err(SyntaxError::UnexpectedToken {
+                expected: "'=' or block expression".to_string(),
+                got: self.next_token()?,
+            }),
         }
     }
 

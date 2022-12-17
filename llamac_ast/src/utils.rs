@@ -103,7 +103,7 @@ impl<'slice, I: Display, S: Display> FmtItems<'slice, I, S> {
 
 impl<I: Display, S: Display> Display for FmtItems<'_, I, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.items.into_iter();
+        let mut iter = self.items.iter();
         if let Some(next) = iter.next() {
             next.fmt(f)?;
         }
