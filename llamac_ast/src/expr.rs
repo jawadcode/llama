@@ -2,14 +2,14 @@ use std::fmt::{self, Display, Write};
 
 use crate::{
     parens_fmt,
-    stmt::{SpanStmt, TypeExpr},
+    stmt::{SpanStmt, Type},
     utils::{FmtItems, Spanned},
     Ident,
 };
 
 pub type SpanExpr = Spanned<Box<Expr>>;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Ident(Ident),
     Literal(Literal),
@@ -59,11 +59,7 @@ impl Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Literal::Unit => f.write_str("unit"),
-            Literal::String(string) => {
-                f.write_char('"')?;
-                string.fmt(f)?;
-                f.write_char('"')
-            }
+            Literal::String(string) => write!(f, "\"{string}\""),
             Literal::Int(int) => int.fmt(f),
             Literal::Float(float) => float.fmt(f),
             Literal::Bool(bool) => bool.fmt(f),
@@ -71,18 +67,16 @@ impl Display for Literal {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct List(pub Vec<SpanExpr>);
 
 impl Display for List {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_char('[')?;
-        FmtItems::new(&self.0, ", ").fmt(f)?;
-        f.write_char(']')
+        write!(f, "[{}]", FmtItems::new(&self.0, ", "))
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ListIndex {
     pub list: SpanExpr,
     pub index: SpanExpr,
@@ -90,14 +84,11 @@ pub struct ListIndex {
 
 impl Display for ListIndex {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.list.fmt(f)?;
-        f.write_char('[')?;
-        self.index.fmt(f)?;
-        f.write_char(']')
+        write!(f, "{}[{}]", self.list, self.index)
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct UnaryOp {
     pub op: UnOp,
     pub value: SpanExpr,
@@ -105,13 +96,11 @@ pub struct UnaryOp {
 
 impl Display for UnaryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.op.fmt(f)?;
-        f.write_char(' ')?;
-        self.value.fmt(f)
+        write!(f, "{} {}", self.op, self.value)
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum UnOp {
     Not,
     Negate,
@@ -126,14 +115,14 @@ impl Display for UnOp {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BinaryOp {
     pub op: BinOp,
     pub lhs: SpanExpr,
     pub rhs: SpanExpr,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FunCall {
     pub fun: SpanExpr,
     pub args: Spanned<FunArgs>,
@@ -141,19 +130,16 @@ pub struct FunCall {
 
 impl Display for FunCall {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fun.fmt(f)?;
-        self.args.fmt(f)
+        write!(f, "{}{}", self.fun, self.args)
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FunArgs(pub Vec<SpanExpr>);
 
 impl Display for FunArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_char('(')?;
-        FmtItems::new(&self.0, ", ").fmt(f)?;
-        f.write_char(')')
+        write!(f, "({})", FmtItems::new(&self.0, ", "))
     }
 }
 
@@ -163,7 +149,7 @@ impl Display for BinaryOp {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum BinOp {
     // Arithmetic Operators
     Add,
@@ -210,10 +196,10 @@ impl Display for BinOp {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Closure {
     pub params: Spanned<ClosureParams>,
-    pub ret_ty: Option<Spanned<TypeExpr>>,
+    pub ret_ty: Option<Spanned<Type>>,
     pub body: SpanExpr,
 }
 
@@ -230,7 +216,7 @@ impl Display for Closure {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ClosureParams(pub Vec<Spanned<ClosureParam>>);
 
 impl Display for ClosureParams {
@@ -239,27 +225,23 @@ impl Display for ClosureParams {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ClosureParam {
     pub name: Spanned<Ident>,
-    pub annot: Option<Spanned<TypeExpr>>,
+    pub annot: Option<Spanned<Type>>,
 }
 
 impl Display for ClosureParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(annot) = &self.annot {
-            f.write_char('(')?;
-            self.name.fmt(f)?;
-            f.write_str(" : ")?;
-            annot.fmt(f)?;
-            f.write_char(')')
+            write!(f, "({} : {annot})", self.name)
         } else {
             self.name.fmt(f)
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct IfThen {
     pub cond: SpanExpr,
     pub then: SpanExpr,
@@ -269,21 +251,17 @@ pub struct IfThen {
 
 impl Display for IfThen {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("if ")?;
-        self.cond.fmt(f)?;
-        f.write_str(" then ")?;
-        self.then.fmt(f)?;
+        write!(f, "if {} then {}", self.cond, self.then)?;
 
         if let Some(r#else) = &self.r#else {
-            f.write_str(" else ")?;
-            r#else.fmt(f)
+            write!(f, " else {else}")
         } else {
             Ok(())
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Cond {
     pub arms: Spanned<CondArms>,
     pub r#else: Option<SpanExpr>,
@@ -291,17 +269,15 @@ pub struct Cond {
 
 impl Display for Cond {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("cond ")?;
-        self.arms.fmt(f)?;
+        write!(f, "cond {}", self.arms)?;
         if let Some(r#else) = &self.r#else {
-            f.write_str(" | else => ")?;
-            r#else.fmt(f)?;
+            write!(f, " | else => {else}")?;
         }
         f.write_str(" end")
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CondArms(pub Vec<Spanned<CondArm>>);
 
 impl Display for CondArms {
@@ -310,7 +286,7 @@ impl Display for CondArms {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CondArm {
     pub cond: SpanExpr,
     pub branch: SpanExpr,
@@ -318,14 +294,11 @@ pub struct CondArm {
 
 impl Display for CondArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("| ")?;
-        self.cond.fmt(f)?;
-        f.write_str(" => ")?;
-        self.branch.fmt(f)
+        write!(f, "| {} => {}", self.cond, self.branch)
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Match {
     pub expr: SpanExpr,
     pub arms: Spanned<MatchArms>,
@@ -333,15 +306,11 @@ pub struct Match {
 
 impl Display for Match {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("match ")?;
-        self.expr.fmt(f)?;
-        f.write_char(' ')?;
-        self.arms.fmt(f)?;
-        f.write_str(" end")
+        write!(f, "match {} {} end", self.expr, self.arms)
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MatchArms(pub Vec<Spanned<MatchArm>>);
 
 impl Display for MatchArms {
@@ -350,7 +319,7 @@ impl Display for MatchArms {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MatchArm {
     pub patterns: Spanned<MatchPatterns>,
     pub branch: SpanExpr,
@@ -358,14 +327,11 @@ pub struct MatchArm {
 
 impl Display for MatchArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("| ")?;
-        self.patterns.fmt(f)?;
-        f.write_str(" => ")?;
-        self.branch.fmt(f)
+        write!(f, "| {} => {}", self.patterns, self.branch)
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MatchPatterns(pub Vec<Spanned<MatchPattern>>);
 
 impl Display for MatchPatterns {
@@ -374,7 +340,7 @@ impl Display for MatchPatterns {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum MatchPattern {
     Wildcard,
     NamedWildcard(Ident),
@@ -391,13 +357,11 @@ impl Display for MatchPattern {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Block(pub Vec<SpanExpr>);
 
 impl Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("do ")?;
-        FmtItems::new(&self.0, "; ").fmt(f)?;
-        f.write_str(" end")
+        write!(f, "do {} end", FmtItems::new(&self.0, "; "))
     }
 }

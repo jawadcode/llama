@@ -1,9 +1,9 @@
 use std::{
-    fmt::{self, Display},
+    fmt::{self, Debug, Display},
     ops::{Add, Index, Range},
 };
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 /// Custom span for storing the position of a token or AST node in the source string
 pub struct Span {
     /// The start of the span (inclusive)
@@ -14,9 +14,7 @@ pub struct Span {
 
 impl Display for Span {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.start.fmt(f)?;
-        f.write_str("...")?;
-        self.end.fmt(f)
+        write!(f, "{}...{}", self.start, self.end)
     }
 }
 
@@ -53,14 +51,14 @@ impl Index<Span> for str {
     }
 }
 
-#[derive(Clone)]
-pub struct Spanned<T: Display + Clone> {
+#[derive(Debug, Clone)]
+pub struct Spanned<T: Debug + Display + Clone> {
     pub span: Span,
     pub node: T,
 }
 
-impl<T: Display + Clone> Spanned<T> {
-    pub fn map<U: Display + Clone, F: FnOnce(T) -> U>(self, op: F) -> Spanned<U> {
+impl<T: Debug + Display + Clone> Spanned<T> {
+    pub fn map<U: Debug + Display + Clone, F: FnOnce(T) -> U>(self, op: F) -> Spanned<U> {
         Spanned {
             span: self.span,
             node: op(self.node),
@@ -74,9 +72,9 @@ impl<T: Display + Clone> Spanned<T> {
     }
 }
 
-impl<T: Display + Clone> Display for Spanned<T> {
+impl<T: Debug + Display + Clone> Display for Spanned<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.node.fmt(f)
+        std::fmt::Display::fmt(&self.node, f)
     }
 }
 

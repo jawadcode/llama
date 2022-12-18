@@ -29,6 +29,7 @@ version = "0.1.0"
 dependencies = [
  "llamac_ast",
  "llamac_parser",
+ "llamac_typecheck",
 ]
 
 [[package]]
@@ -42,6 +43,13 @@ dependencies = [
  "ariadne",
  "llamac_ast",
  "logos",
+]
+
+[[package]]
+name = "llamac_typecheck"
+version = "0.1.0"
+dependencies = [
+ "llamac_ast",
 ]
 
 [[package]]

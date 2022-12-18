@@ -1,4 +1,4 @@
-use std::fmt::{self, Display, Write};
+use std::fmt::{self, Display};
 
 use crate::{
     expr::{Cond, IfThen, Match, SpanExpr},
@@ -8,7 +8,7 @@ use crate::{
 
 pub type SpanStmt = Spanned<Stmt>;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Const(Const),
     LetBind(LetBind),
@@ -31,28 +31,23 @@ impl Display for Stmt {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Const {
     pub name: Spanned<Ident>,
-    pub annot: Spanned<TypeExpr>,
+    pub annot: Spanned<Type>,
     pub value: SpanExpr,
 }
 
 impl Display for Const {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("const ")?;
-        self.name.fmt(f)?;
-        f.write_str(" : ")?;
-        self.annot.fmt(f)?;
-        f.write_str(" = ")?;
-        self.value.fmt(f)
+        write!(f, "const {} : {} = {}", self.name, self.annot, self.value)
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct LetBind {
     pub name: Spanned<Ident>,
-    pub annot: Option<Spanned<TypeExpr>>,
+    pub annot: Option<Spanned<Type>>,
     pub value: SpanExpr,
 }
 
@@ -69,11 +64,11 @@ impl Display for LetBind {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FunDef {
     pub name: Spanned<Ident>,
     pub params: Spanned<FunParams>,
-    pub ret_ty: Spanned<TypeExpr>,
+    pub ret_ty: Spanned<Type>,
     pub body: SpanExpr,
 }
 
@@ -87,50 +82,44 @@ impl Display for FunDef {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FunParams(pub Vec<Spanned<FunParam>>);
 
 impl Display for FunParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_char('(')?;
-        FmtItems::new(&self.0, ", ").fmt(f)?;
-        f.write_char(')')
+        write!(f, "({})", FmtItems::new(&self.0, ", "))
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FunParam {
     pub name: Spanned<Ident>,
-    pub annot: Spanned<TypeExpr>,
+    pub annot: Spanned<Type>,
 }
 
 impl Display for FunParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.name.fmt(f)?;
-        f.write_str(" : ")?;
-        self.annot.fmt(f)
+        write!(f, "{} : {}", self.name, self.annot)
     }
 }
 
-#[derive(Clone)]
-pub struct TypeExprs(pub Vec<Spanned<TypeExpr>>);
+#[derive(Debug, Clone)]
+pub struct Types(pub Vec<Spanned<Type>>);
 
-impl Display for TypeExprs {
+impl Display for Types {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_char('[')?;
-        FmtItems::new(&self.0, ", ").fmt(f)?;
-        f.write_char(']')
+        write!(f, "[{}]", FmtItems::new(&self.0, ", "))
     }
 }
 
-#[derive(Clone)]
-pub enum TypeExpr {
+#[derive(Debug, Clone)]
+pub enum Type {
     /// Type constructors
     Fun {
-        params: Spanned<TypeExprs>,
+        params: Spanned<Types>,
         ret_ty: Spanned<Box<Self>>,
     },
-    List(Spanned<Box<TypeExpr>>),
+    List(Spanned<Box<Type>>),
     // Primitives
     Unit,
     Bool,
@@ -139,25 +128,20 @@ pub enum TypeExpr {
     String,
 }
 
-impl Display for TypeExpr {
+impl Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TypeExpr::Fun { params, ret_ty } => {
-                f.write_str("Fun")?;
-                params.fmt(f)?;
-                f.write_str(" -> ")?;
-                ret_ty.fmt(f)
+            Type::Fun { params, ret_ty } => {
+                write!(f, "Fun{params} -> {ret_ty}")
             }
-            TypeExpr::List(ty) => {
-                f.write_str("List[")?;
-                ty.fmt(f)?;
-                f.write_char(']')
+            Type::List(ty) => {
+                write!(f, "List[{ty}]")
             }
-            TypeExpr::Unit => f.write_str("Unit"),
-            TypeExpr::Bool => f.write_str("Bool"),
-            TypeExpr::Int => f.write_str("Int"),
-            TypeExpr::Float => f.write_str("Float"),
-            TypeExpr::String => f.write_str("String"),
+            Type::Unit => f.write_str("Unit"),
+            Type::Bool => f.write_str("Bool"),
+            Type::Int => f.write_str("Int"),
+            Type::Float => f.write_str("Float"),
+            Type::String => f.write_str("String"),
         }
     }
 }

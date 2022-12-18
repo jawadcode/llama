@@ -40,7 +40,7 @@ impl Display for SourceFile {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Item {
     Const(Const),
     FunDef(FunDef),

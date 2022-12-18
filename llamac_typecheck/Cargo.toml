@@ -1,5 +1,5 @@
 [package]
-name = "llamac"
+name = "llamac_typecheck"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,5 +7,3 @@ edition = "2021"
 
 [dependencies]
 llamac_ast = { path = "../llamac_ast" }
-llamac_parser = { path = "../llamac_parser" }
-llamac_typecheck = { path = "../llamac_typecheck" }
