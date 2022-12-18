@@ -1,5 +1,5 @@
 use ariadne::{sources, Label, Report, ReportKind};
-use llamac_ast::utils::{Span, Spanned};
+use llamac_utils::{Span, Spanned};
 
 use crate::lexer::Token;
 

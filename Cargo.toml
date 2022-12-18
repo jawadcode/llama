@@ -1,8 +1,10 @@
 [workspace]
 
 members = [
+  "llamac_utils",
   "llamac_ast",
   "llamac_parser",
+  "llamac_typed_ast",
   "llamac_typecheck",
   "llamac"
 ]

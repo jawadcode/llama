@@ -4,10 +4,10 @@ use llamac_ast::{
         Expr, FunArgs, FunCall, IfThen, List, ListIndex, Literal, Match, MatchArm, MatchArms,
         MatchPattern, MatchPatterns, SpanExpr, UnOp, UnaryOp,
     },
-    spanned,
-    utils::Spanned,
     Ident,
 };
+
+use llamac_utils::{spanned, Spanned};
 
 use crate::{error::SyntaxError, lexer::TK, ParseResult, Parser};
 

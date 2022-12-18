@@ -1,6 +1,6 @@
 use std::fmt::{self, Display};
 
-use llamac_ast::utils::Span;
+use llamac_utils::Span;
 use logos::{Logos, Skip, SpannedIter};
 
 /// A wrapper around `logos::SpannedIter` which yields `Token::Eof` once it reaches the end of the source

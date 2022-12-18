@@ -1,9 +1,9 @@
 use llamac_ast::{
     expr::Expr,
-    spanned,
     stmt::{Const, FunDef, FunParam, FunParams, LetBind, SpanStmt, Stmt, Type, Types},
-    utils::{Span, Spanned},
 };
+
+use llamac_utils::{spanned, Span, Spanned};
 
 use crate::{error::SyntaxError, lexer::TK, ParseResult, Parser};
 

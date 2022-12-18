@@ -81,7 +81,7 @@ impl<T: Debug + Display + Clone> Display for Spanned<T> {
 #[macro_export]
 macro_rules! spanned {
     ($span:expr, $node:expr) => {
-        $crate::utils::Spanned {
+        $crate::Spanned {
             span: ($span).into(),
             node: $node,
         }

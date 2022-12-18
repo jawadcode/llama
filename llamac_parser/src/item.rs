@@ -1,4 +1,6 @@
-use llamac_ast::{utils::Spanned, Item};
+use llamac_ast::Item;
+
+use llamac_utils::Spanned;
 
 use crate::{error::SyntaxError, lexer::TK, ParseResult, Parser};
 

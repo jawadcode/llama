@@ -6,4 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+llamac_utils = { path = "../llamac_utils" }
 llamac_ast = { path = "../llamac_ast" }

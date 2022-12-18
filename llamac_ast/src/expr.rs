@@ -1,9 +1,9 @@
 use std::fmt::{self, Display, Write};
 
+use llamac_utils::{parens_fmt, FmtItems, Spanned};
+
 use crate::{
-    parens_fmt,
     stmt::{SpanStmt, Type},
-    utils::{FmtItems, Spanned},
     Ident,
 };
 

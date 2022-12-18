@@ -3,12 +3,11 @@ use std::{
     path::PathBuf,
 };
 
+use llamac_utils::{FmtItems, Spanned};
 use stmt::{Const, FunDef};
-use utils::{FmtItems, Spanned};
 
 pub mod expr;
 pub mod stmt;
-pub mod utils;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ident(String);

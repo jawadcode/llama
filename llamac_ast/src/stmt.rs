@@ -1,8 +1,9 @@
 use std::fmt::{self, Display};
 
+use llamac_utils::{FmtItems, Spanned};
+
 use crate::{
     expr::{Cond, IfThen, Match, SpanExpr},
-    utils::{FmtItems, Spanned},
     Ident,
 };
 
