@@ -3,27 +3,11 @@ use std::{
     path::PathBuf,
 };
 
-use llamac_utils::{FmtItems, Spanned};
+use llamac_utils::{FmtItems, Ident, Spanned};
 use stmt::{Const, FunDef};
 
 pub mod expr;
 pub mod stmt;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Ident(String);
-
-impl Ident {
-    pub fn new(string: &str) -> Self {
-        Self(string.to_string())
-    }
-}
-
-impl Display for Ident {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(ident) = self;
-        f.write_str(ident)
-    }
-}
 
 pub struct SourceFile {
     pub path: PathBuf,
@@ -32,10 +16,12 @@ pub struct SourceFile {
 
 impl Display for SourceFile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("(* ")?;
-        f.write_str(self.path.to_str().unwrap())?;
-        f.write_str(" *)\n\n")?;
-        FmtItems::new(&self.items, "\n").fmt(f)
+        write!(
+            f,
+            "(* {} *)\n\n{}",
+            self.path.to_str().unwrap(),
+            FmtItems::new(&self.items, "\n")
+        )
     }
 }
 

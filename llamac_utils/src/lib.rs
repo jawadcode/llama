@@ -3,6 +3,22 @@ use std::{
     ops::{Add, Index, Range},
 };
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Ident(String);
+
+impl Ident {
+    pub fn new(string: &str) -> Self {
+        Self(string.to_string())
+    }
+}
+
+impl Display for Ident {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(ident) = self;
+        f.write_str(ident)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Custom span for storing the position of a token or AST node in the source string
 pub struct Span {

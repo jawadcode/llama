@@ -1,13 +1,10 @@
-use llamac_ast::{
-    expr::{
-        BinOp, BinaryOp, Block, Closure, ClosureParam, ClosureParams, Cond, CondArm, CondArms,
-        Expr, FunArgs, FunCall, IfThen, List, ListIndex, Literal, Match, MatchArm, MatchArms,
-        MatchPattern, MatchPatterns, SpanExpr, UnOp, UnaryOp,
-    },
-    Ident,
+use llamac_ast::expr::{
+    BinOp, BinaryOp, Block, Closure, ClosureParam, ClosureParams, Cond, CondArm, CondArms, Expr,
+    FunArgs, FunCall, IfThen, List, ListIndex, Literal, Match, MatchArm, MatchArms, MatchPattern,
+    MatchPatterns, SpanExpr, UnOp, UnaryOp,
 };
 
-use llamac_utils::{spanned, Spanned};
+use llamac_utils::{spanned, Ident, Spanned};
 
 use crate::{error::SyntaxError, lexer::TK, ParseResult, Parser};
 
