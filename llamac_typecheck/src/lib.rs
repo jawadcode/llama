@@ -15,6 +15,9 @@ use llamac_typed_ast::{
 };
 use llamac_utils::{spanned, Ident, Span, Spanned};
 
+pub mod expr;
+pub mod stmt;
+
 // The type inference engine
 pub struct Engine {
     // The substitution from type variables to types to be built up
@@ -103,92 +106,6 @@ impl Engine {
             path,
             items: new_items,
         })
-    }
-
-    /// Typecheck a constant declaration (if top_level then the name and type will be added to the scope)
-    fn infer_const(
-        &mut self,
-        Const { name, annot, value }: Const,
-        top_level: bool,
-    ) -> InferResult<TypedConst> {
-        let annot = annot.map_ref(Type::from);
-        let value = self.infer_expr(value, annot.clone())?;
-        if !top_level {
-            self.extend(name.node.clone(), annot.node.clone(), annot.span);
-        }
-        Ok(TypedConst { name, annot, value })
-    }
-
-    /// Typecheck a function definition (if top_level then the name and type will be added to the scope)
-    fn infer_fun_def(
-        &mut self,
-        FunDef {
-            name,
-            params,
-            ret_ty,
-            body,
-        }: FunDef,
-        top_level: bool,
-    ) -> InferResult<TypedFunDef> {
-        let params = params.map(|params| {
-            TypedFunParams(
-                params
-                    .0
-                    .into_iter()
-                    .map(|param| {
-                        param.map(|FunParam { name, annot }| TypedFunParam {
-                            name,
-                            annot: annot.map_ref(Type::from),
-                        })
-                    })
-                    .collect(),
-            )
-        });
-
-        // Create a new scope, adding all of the function parameters to it
-        self.enter_scope();
-        for Spanned {
-            span,
-            node: TypedFunParam { name, annot },
-        } in params.node.0.iter()
-        {
-            self.extend(name.node.clone(), annot.node.clone(), *span);
-        }
-        let ret_ty: Spanned<Type> = ret_ty.map_ref(Type::from);
-        if !top_level {
-            let ty = Type::Fun {
-                params: params.clone().map(|params| {
-                    Types(
-                        params
-                            .0
-                            .into_iter()
-                            .map(
-                                |Spanned {
-                                     span: _,
-                                     node: TypedFunParam { name: _, annot },
-                                 }| annot,
-                            )
-                            .collect(),
-                    )
-                }),
-                ret_ty: ret_ty.clone().map(Box::new),
-            };
-            self.extend(name.node.clone(), ty, name.span);
-        }
-        let body = self.infer_expr(body, ret_ty.clone())?;
-        self.exit_scope();
-
-        Ok(TypedFunDef {
-            name,
-            params,
-            ret_ty,
-            body,
-        })
-    }
-
-    /// Transform an expression into a typed expression, eagerly inferring the immediately obvious types, and generating a type variable and constraints for the rest
-    fn infer_expr(&mut self, expr: SpanExpr, ty: Spanned<Type>) -> InferResult<TypedSpanExpr> {
-        todo!()
     }
 
     /// Generate a fresh type variable and add it to the list of substitutions
