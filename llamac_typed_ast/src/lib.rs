@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use llamac_utils::{FmtItems, Spanned};
+use llamac_utils::{spanned, FmtItems, Spanned};
 use stmt::{TypedConst, TypedFunDef};
 
 pub mod expr;
@@ -81,6 +81,45 @@ impl Display for Type {
             Type::Int => f.write_str("Int"),
             Type::Float => f.write_str("Float"),
             Type::String => f.write_str("String"),
+        }
+    }
+}
+
+// Ideally we could implement this for `Spanned<Types>` but `Spanned` isn't defined in this crate so we can't
+impl From<&llamac_ast::stmt::Types> for Types {
+    fn from(value: &llamac_ast::stmt::Types) -> Self {
+        Self(
+            value
+                .0
+                .iter()
+                .map(|Spanned { span, node }| spanned! {*span, node.into()})
+                .collect(),
+        )
+    }
+}
+
+impl From<&llamac_ast::stmt::Type> for Type {
+    fn from(value: &llamac_ast::stmt::Type) -> Self {
+        use llamac_ast::stmt::Type as SType;
+        match value {
+            SType::Fun { params, ret_ty } => {
+                let new_params: Vec<Spanned<Type>> = params
+                    .node
+                    .0
+                    .iter()
+                    .map(|Spanned { span, node }| spanned! {*span, node.into()})
+                    .collect();
+                Type::Fun {
+                    params: spanned! {params.span, Types(new_params)},
+                    ret_ty: ret_ty.map_ref(|ty| Box::new(ty.as_ref().into())),
+                }
+            }
+            SType::List(ty) => Type::List(ty.map_ref(|ty| Box::new(ty.as_ref().into()))),
+            SType::Unit => Type::Unit,
+            SType::Bool => Type::Bool,
+            SType::Int => Type::Int,
+            SType::Float => Type::Float,
+            SType::String => Type::String,
         }
     }
 }

@@ -133,7 +133,7 @@ impl Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Fun { params, ret_ty } => {
-                write!(f, "Fun{params} -> {ret_ty}")
+                write!(f, "Fun[{params}] -> {ret_ty}")
             }
             Type::List(ty) => {
                 write!(f, "List[{ty}]")

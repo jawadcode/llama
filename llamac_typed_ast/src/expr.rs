@@ -1,5 +1,6 @@
 use std::fmt::{self, Display, Write};
 
+use llamac_ast::expr::{BinOp, MatchPatterns, UnOp};
 use llamac_utils::{parens_fmt, FmtItems, Ident, Spanned};
 
 use crate::{stmt::TypedSpanStmt, Type};
@@ -102,21 +103,6 @@ impl Display for TypedUnaryOp {
 }
 
 #[derive(Debug, Clone)]
-pub enum UnOp {
-    Not,
-    Negate,
-}
-
-impl Display for UnOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            UnOp::Not => f.write_char('!'),
-            UnOp::Negate => f.write_char('-'),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct TypedBinaryOp {
     pub op: BinOp,
     pub lhs: TypedSpanExpr,
@@ -126,7 +112,7 @@ pub struct TypedBinaryOp {
 #[derive(Debug, Clone)]
 pub struct TypedFunCall {
     pub fun: TypedSpanExpr,
-    pub args: Spanned<FunArgs>,
+    pub args: Spanned<TypedFunArgs>,
 }
 
 impl Display for TypedFunCall {
@@ -136,9 +122,9 @@ impl Display for TypedFunCall {
 }
 
 #[derive(Debug, Clone)]
-pub struct FunArgs(pub Vec<TypedSpanExpr>);
+pub struct TypedFunArgs(pub Vec<TypedSpanExpr>);
 
-impl Display for FunArgs {
+impl Display for TypedFunArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({})", FmtItems::new(&self.0, ", "))
     }
@@ -151,55 +137,8 @@ impl Display for TypedBinaryOp {
 }
 
 #[derive(Debug, Clone)]
-pub enum BinOp {
-    // Arithmetic Operators
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    // Boolean Operators
-    And,
-    Or,
-    Xor,
-    // Relational Operators
-    Lt,
-    Leq,
-    Gt,
-    Geq,
-    Eq,
-    Neq,
-    // Misc
-    Pipe,
-    Concat,
-}
-
-impl Display for BinOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            BinOp::Add => f.write_char('+'),
-            BinOp::Sub => f.write_char('-'),
-            BinOp::Mul => f.write_char('*'),
-            BinOp::Div => f.write_char('/'),
-            BinOp::Mod => f.write_char('%'),
-            BinOp::And => f.write_str("and"),
-            BinOp::Or => f.write_str("or"),
-            BinOp::Xor => f.write_str("xor"),
-            BinOp::Lt => f.write_char('<'),
-            BinOp::Leq => f.write_str("<="),
-            BinOp::Gt => f.write_char('>'),
-            BinOp::Geq => f.write_str(">="),
-            BinOp::Eq => f.write_str("=="),
-            BinOp::Neq => f.write_str("!="),
-            BinOp::Pipe => f.write_str("|>"),
-            BinOp::Concat => f.write_str("++"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct TypedClosure {
-    pub params: Spanned<ClosureParams>,
+    pub params: Spanned<TypedClosureParams>,
     pub ret_ty: Option<Spanned<Type>>,
     pub body: TypedSpanExpr,
 }
@@ -218,27 +157,23 @@ impl Display for TypedClosure {
 }
 
 #[derive(Debug, Clone)]
-pub struct ClosureParams(pub Vec<Spanned<ClosureParam>>);
+pub struct TypedClosureParams(pub Vec<Spanned<TypedClosureParam>>);
 
-impl Display for ClosureParams {
+impl Display for TypedClosureParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         FmtItems::new(&self.0, ' ').fmt(f)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct ClosureParam {
+pub struct TypedClosureParam {
     pub name: Spanned<Ident>,
-    pub annot: Option<Spanned<Type>>,
+    pub annot: Spanned<Type>,
 }
 
-impl Display for ClosureParam {
+impl Display for TypedClosureParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(annot) = &self.annot {
-            write!(f, "({} : {annot})", self.name)
-        } else {
-            self.name.fmt(f)
-        }
+        write!(f, "({} : {})", self.name, self.annot)
     }
 }
 
@@ -264,7 +199,7 @@ impl Display for TypedIfThen {
 
 #[derive(Debug, Clone)]
 pub struct TypedCond {
-    pub arms: Spanned<CondArms>,
+    pub arms: Spanned<TypedCondArms>,
     pub r#else: Option<TypedSpanExpr>,
 }
 
@@ -279,21 +214,21 @@ impl Display for TypedCond {
 }
 
 #[derive(Debug, Clone)]
-pub struct CondArms(pub Vec<Spanned<CondArm>>);
+pub struct TypedCondArms(pub Vec<Spanned<TypedCondArm>>);
 
-impl Display for CondArms {
+impl Display for TypedCondArms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         FmtItems::new(&self.0, ' ').fmt(f)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct CondArm {
+pub struct TypedCondArm {
     pub cond: TypedSpanExpr,
     pub branch: TypedSpanExpr,
 }
 
-impl Display for CondArm {
+impl Display for TypedCondArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "| {} => {}", self.cond, self.branch)
     }
@@ -302,7 +237,7 @@ impl Display for CondArm {
 #[derive(Debug, Clone)]
 pub struct TypedMatch {
     pub expr: TypedSpanExpr,
-    pub arms: Spanned<MatchArms>,
+    pub arms: Spanned<TypedMatchArms>,
 }
 
 impl Display for TypedMatch {
@@ -312,49 +247,23 @@ impl Display for TypedMatch {
 }
 
 #[derive(Debug, Clone)]
-pub struct MatchArms(pub Vec<Spanned<MatchArm>>);
+pub struct TypedMatchArms(pub Vec<Spanned<TypedMatchArm>>);
 
-impl Display for MatchArms {
+impl Display for TypedMatchArms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         FmtItems::new(&self.0, ' ').fmt(f)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct MatchArm {
+pub struct TypedMatchArm {
     pub patterns: Spanned<MatchPatterns>,
     pub branch: TypedSpanExpr,
 }
 
-impl Display for MatchArm {
+impl Display for TypedMatchArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "| {} => {}", self.patterns, self.branch)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MatchPatterns(pub Vec<Spanned<MatchPattern>>);
-
-impl Display for MatchPatterns {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        FmtItems::new(&self.0, ", ").fmt(f)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum MatchPattern {
-    Wildcard,
-    NamedWildcard(Ident),
-    Literal(TypedLiteral),
-}
-
-impl Display for MatchPattern {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MatchPattern::Wildcard => f.write_str("*"),
-            MatchPattern::NamedWildcard(name) => name.fmt(f),
-            MatchPattern::Literal(literal) => literal.fmt(f),
-        }
     }
 }
 
