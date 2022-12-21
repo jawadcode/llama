@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Write};
 
-use llamac_ast::expr::{BinOp, MatchPatterns, UnOp};
+use llamac_ast::expr::{BinOp, Literal, MatchPatterns, UnOp};
 use llamac_utils::{parens_fmt, FmtItems, Ident, Spanned};
 
 use crate::{stmt::TypedSpanStmt, Type};
@@ -8,12 +8,12 @@ use crate::{stmt::TypedSpanStmt, Type};
 pub type TypedSpanExpr = Spanned<Box<TypedExpr>>;
 
 #[derive(Debug, Clone)]
-pub struct TypedExpr(InnerExpr, Type);
+pub struct TypedExpr(pub InnerExpr, pub Type);
 
 #[derive(Debug, Clone)]
 pub enum InnerExpr {
     Ident(Ident),
-    Literal(TypedLiteral),
+    Literal(Literal),
     List(TypedList),
     ListIndex(TypedListIndex),
     UnaryOp(TypedUnaryOp),
@@ -45,27 +45,6 @@ impl Display for TypedExpr {
             InnerExpr::Stmt(stmt) => parens_fmt!(f, stmt),
         }?;
         write!(f, " : {}", self.1)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum TypedLiteral {
-    Unit,
-    String(String),
-    Int(i64),
-    Float(f64),
-    Bool(bool),
-}
-
-impl Display for TypedLiteral {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TypedLiteral::Unit => f.write_str("unit"),
-            TypedLiteral::String(string) => write!(f, "\"{string}\""),
-            TypedLiteral::Int(int) => int.fmt(f),
-            TypedLiteral::Float(float) => float.fmt(f),
-            TypedLiteral::Bool(bool) => bool.fmt(f),
-        }
     }
 }
 

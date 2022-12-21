@@ -9,9 +9,10 @@ fn main() {
     match Parser::new(&file).parse_file(&PathBuf::from("test.txt")) {
         Ok(source_file) => {
             println!("Pretty Printed AST:\n{}", &source_file);
-            Engine::new(HashMap::new())
+            let typed_source_file = Engine::new(HashMap::new())
                 .infer_source_file(source_file)
                 .unwrap();
+            println!("Typed AST:\n{typed_source_file}");
         }
         Err(err) => err.report(filename, &file),
     }

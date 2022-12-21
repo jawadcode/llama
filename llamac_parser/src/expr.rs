@@ -101,10 +101,10 @@ impl Parser<'_> {
 
         loop {
             match self.peek() {
-                TK::LParen => lhs = self.parse_funcall(lhs)?.map(Expr::FunCall).map(Box::new),
+                TK::LParen => lhs = self.parse_fun_call(lhs)?.map(Expr::FunCall).map(Box::new),
                 TK::LSquare => {
                     lhs = self
-                        .parse_listindex(lhs)?
+                        .parse_list_index(lhs)?
                         .map(Expr::ListIndex)
                         .map(Box::new)
                 }
@@ -324,7 +324,7 @@ impl Parser<'_> {
         Ok(spanned! {op_token.span + value.span, UnaryOp { op: op.into(), value }})
     }
 
-    fn parse_funcall(&mut self, lhs: SpanExpr) -> ParseResult<Spanned<FunCall>> {
+    fn parse_fun_call(&mut self, lhs: SpanExpr) -> ParseResult<Spanned<FunCall>> {
         let fun = lhs;
         let lparen = self.lexer.next().unwrap();
         let mut args = Vec::new();
@@ -343,7 +343,7 @@ impl Parser<'_> {
         Ok(spanned! {fun.span + rparen.span, FunCall { fun, args }})
     }
 
-    fn parse_listindex(&mut self, list: SpanExpr) -> ParseResult<Spanned<ListIndex>> {
+    fn parse_list_index(&mut self, list: SpanExpr) -> ParseResult<Spanned<ListIndex>> {
         let lsquare = self.lexer.next().unwrap();
         let index = self.parse_expr()?;
         let rsquare = self.lexer.next().unwrap();

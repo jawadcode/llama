@@ -4,15 +4,10 @@ use std::{
 };
 
 use llamac_ast::{
-    expr::SpanExpr,
-    stmt::{Const, FunDef, FunParam, FunParams},
+    stmt::{Const, FunDef, FunParams},
     Item, SourceFile,
 };
-use llamac_typed_ast::{
-    expr::TypedSpanExpr,
-    stmt::{TypedConst, TypedFunDef, TypedFunParam, TypedFunParams},
-    Type, TypedItem, TypedSourceFile, Types,
-};
+use llamac_typed_ast::{Type, TypedItem, TypedSourceFile, Types};
 use llamac_utils::{spanned, Ident, Span, Spanned};
 
 pub mod expr;
@@ -32,28 +27,39 @@ pub struct Engine {
 #[derive(Debug, Clone)]
 pub enum Constraint {
     Equality {
-        type1: Type,
-        type2: Type,
-        span: Span,
+        expected: Type,
+        expected_span: Span,
+        got: Type,
+        got_span: Span,
     },
-}
-
-pub type InferResult<T> = Result<T, InferError>;
-
-#[derive(Debug, Clone)]
-pub enum InferError {}
-
-impl Display for InferError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(())
-    }
 }
 
 impl Display for Constraint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Constraint::Equality { type1, type2, span } => write!(f, "{type1} == {type2} @ {span}"),
+            Constraint::Equality {
+                expected,
+                expected_span,
+                got,
+                got_span,
+            } => write!(
+                f,
+                "{expected} == {got}, due to {expected_span}, at {got_span}"
+            ),
         }
+    }
+}
+
+pub type InferResult<T> = Result<T, InferError>;
+
+#[derive(Debug, Clone)]
+pub enum InferError {
+    NotFound { ident: Ident, span: Span },
+}
+
+impl Display for InferError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
     }
 }
 
