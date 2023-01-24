@@ -1,5 +1,6 @@
 [package]
 name = "llamac_parser"
+authors = ["Jawad Ahmed <jawad.w.ahmed@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
 
