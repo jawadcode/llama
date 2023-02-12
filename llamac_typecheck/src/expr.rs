@@ -78,7 +78,7 @@ impl Engine {
         Ok(spanned! {
             span,
             Box::new(TypedExpr(
-                InnerExpr::Literal(lit.clone()),
+                InnerExpr::Literal(lit),
                 ty,
             ))
         })
@@ -96,7 +96,7 @@ impl Engine {
             let new_item = self.infer_expr(expr, spanned! {expected.span, item_type.clone()})?;
             new_items.push(new_item);
         }
-        let list_type = Type::List(spanned! {expected.span, Box::new(item_type.clone())});
+        let list_type = Type::List(spanned! {expected.span, Box::new(item_type)});
         self.constraints.push(Constraint::Equality {
             expected: expected.node,
             expected_span: expected.span,
@@ -114,12 +114,12 @@ impl Engine {
 
     fn infer_list_index(
         &mut self,
-        ListIndex { list, index }: ListIndex,
-        span: Span,
+        ListIndex { list, index: _ }: ListIndex,
+        _span: Span,
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
         let list_type = self.fresh_var();
-        let new_list = self.infer_expr(list, spanned! {expected.span, list_type});
+        let _new_list = self.infer_expr(list, spanned! {expected.span, list_type});
         todo!("")
     }
 }
