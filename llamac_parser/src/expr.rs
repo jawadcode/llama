@@ -8,11 +8,15 @@ use llamac_utils::{spanned, Ident, Spanned};
 
 use crate::{error::SyntaxError, lexer::TK, ParseResult, Parser};
 
-const BIN_OPS: [TK; 16] = [
+const BIN_OPS: [TK; 20] = [
     TK::Add,
     TK::Sub,
     TK::Star,
     TK::Div,
+    TK::FAdd,
+    TK::FSub,
+    TK::FMul,
+    TK::FDiv,
     TK::Mod,
     TK::And,
     TK::Or,
@@ -373,6 +377,10 @@ impl From<TK> for BinOp {
             TK::Sub => Self::Sub,
             TK::Star => Self::Mul,
             TK::Div => Self::Div,
+            TK::FAdd => Self::FAdd,
+            TK::FSub => Self::FSub,
+            TK::FMul => Self::FMul,
+            TK::FDiv => Self::FDiv,
             TK::Mod => Self::Mod,
             TK::And => Self::And,
             TK::Or => Self::Or,
