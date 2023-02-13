@@ -1,6 +1,6 @@
 use llamac_ast::expr::{Expr, List, ListIndex, Literal, SpanExpr};
 use llamac_typed_ast::{
-    expr::{InnerExpr, TypedExpr, TypedList, TypedSpanExpr},
+    expr::{InnerExpr, TypedExpr, TypedList, TypedSpanExpr, TypedListIndex},
     Type,
 };
 use llamac_utils::{spanned, Ident, Span, Spanned};
@@ -114,12 +114,29 @@ impl Engine {
 
     fn infer_list_index(
         &mut self,
-        ListIndex { list, index: _ }: ListIndex,
-        _span: Span,
+        ListIndex { list, index }: ListIndex,
+        span: Span,
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
-        let list_type = self.fresh_var();
-        let _new_list = self.infer_expr(list, spanned! {expected.span, list_type});
-        todo!("")
+        let item_type = self.fresh_var();
+        let list_type = Type::List(spanned!{expected.span, Box::new(item_type.clone())});
+        let new_list = self.infer_expr(list, spanned! {expected.span, list_type})?;
+        let new_index = self.infer_expr(index, spanned! {expected.span, Type::Int})?;
+        self.constraints.push(Constraint::Equality {
+            expected: expected.node,
+            expected_span: expected.span,
+            got: item_type.clone(),
+            got_span: span,
+        });
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::ListIndex(TypedListIndex {
+                    list: new_list,
+                    index: new_index
+                }),
+                item_type,
+            ))
+        })
     }
 }
