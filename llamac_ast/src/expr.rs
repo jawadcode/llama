@@ -100,17 +100,19 @@ impl Display for UnaryOp {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum UnOp {
     Not,
-    Negate,
+    INegate,
+    FNegate,
 }
 
 impl Display for UnOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             UnOp::Not => f.write_char('!'),
-            UnOp::Negate => f.write_char('-'),
+            UnOp::INegate => f.write_char('-'),
+            UnOp::FNegate => f.write_str("-."),
         }
     }
 }
@@ -149,7 +151,7 @@ impl Display for BinaryOp {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum BinOp {
     // Arithmetic Operators
     Add,

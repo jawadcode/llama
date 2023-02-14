@@ -1,6 +1,6 @@
-use llamac_ast::expr::{Expr, List, ListIndex, Literal, SpanExpr};
+use llamac_ast::expr::{Expr, List, ListIndex, Literal, SpanExpr, UnOp, UnaryOp};
 use llamac_typed_ast::{
-    expr::{InnerExpr, TypedExpr, TypedList, TypedSpanExpr, TypedListIndex},
+    expr::{InnerExpr, TypedExpr, TypedList, TypedListIndex, TypedSpanExpr, TypedUnaryOp},
     Type,
 };
 use llamac_utils::{spanned, Ident, Span, Spanned};
@@ -19,7 +19,7 @@ impl Engine {
             Expr::Literal(lit) => self.infer_literal(lit, expr.span, expected),
             Expr::List(list) => self.infer_list(list, expr.span, expected),
             Expr::ListIndex(list_index) => self.infer_list_index(list_index, expr.span, expected),
-            Expr::UnaryOp(_) => todo!(),
+            Expr::UnaryOp(unary_op) => self.infer_unary_op(unary_op, expr.span, expected),
             Expr::BinaryOp(_) => todo!(),
             Expr::FunCall(_) => todo!(),
             Expr::Closure(_) => todo!(),
@@ -119,7 +119,7 @@ impl Engine {
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
         let item_type = self.fresh_var();
-        let list_type = Type::List(spanned!{expected.span, Box::new(item_type.clone())});
+        let list_type = Type::List(spanned! {expected.span, Box::new(item_type.clone())});
         let new_list = self.infer_expr(list, spanned! {expected.span, list_type})?;
         let new_index = self.infer_expr(index, spanned! {expected.span, Type::Int})?;
         self.constraints.push(Constraint::Equality {
@@ -136,6 +136,37 @@ impl Engine {
                     index: new_index
                 }),
                 item_type,
+            ))
+        })
+    }
+
+    fn infer_unary_op(
+        &mut self,
+        UnaryOp { op, value }: UnaryOp,
+        span: Span,
+        expected: Spanned<Type>,
+    ) -> InferResult<TypedSpanExpr> {
+        let ty = match op {
+            UnOp::Not => Type::Bool,
+            UnOp::INegate => Type::Int,
+            UnOp::FNegate => Type::Float,
+        };
+        let value_type = self.fresh_var();
+        let new_value = self.infer_expr(value, spanned! {expected.span, value_type})?;
+        self.constraints.push(Constraint::Equality {
+            expected: expected.node,
+            expected_span: expected.span,
+            got: ty.clone(),
+            got_span: span,
+        });
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::UnaryOp(TypedUnaryOp {
+                    op,
+                    value: new_value
+                }),
+                ty
             ))
         })
     }

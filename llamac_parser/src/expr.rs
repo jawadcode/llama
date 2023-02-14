@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use llamac_ast::expr::{
     BinOp, BinaryOp, Block, Closure, ClosureParam, ClosureParams, Cond, CondArm, CondArms, Expr,
     FunArgs, FunCall, IfThen, List, ListIndex, Literal, Match, MatchArm, MatchArms, MatchPattern,
@@ -93,7 +95,9 @@ impl Parser<'_> {
             TK::Do => self.parse_block()?.map(Expr::Block),
 
             TK::LParen => self.parse_grouping()?,
-            op @ TK::Sub | op @ TK::Not => self.parse_prefix_op(op)?.map(Expr::UnaryOp),
+            op @ TK::Sub | op @ TK::FSub | op @ TK::Not => {
+                self.parse_prefix_op(op)?.map(Expr::UnaryOp)
+            }
             _ => {
                 return Err(SyntaxError::UnexpectedToken {
                     expected: "expression".to_string(),
@@ -364,7 +368,8 @@ impl From<TK> for UnOp {
     fn from(kind: TK) -> Self {
         match kind {
             TK::Not => Self::Not,
-            TK::Sub => Self::Negate,
+            TK::Sub => Self::INegate,
+            TK::FSub => Self::FNegate,
             _ => unreachable!(),
         }
     }
