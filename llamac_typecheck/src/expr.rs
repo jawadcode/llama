@@ -1,7 +1,14 @@
-use llamac_ast::expr::{Expr, List, ListIndex, Literal, SpanExpr, UnOp, UnaryOp};
+use llamac_ast::expr::{
+    BinOp, BinaryOp, Closure, Expr, FunArgs, FunCall, IfThen, List, ListIndex, Literal, SpanExpr,
+    UnOp, UnaryOp,
+};
 use llamac_typed_ast::{
-    expr::{InnerExpr, TypedExpr, TypedList, TypedListIndex, TypedSpanExpr, TypedUnaryOp},
-    Type,
+    expr::{
+        InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams, TypedExpr,
+        TypedFunArgs, TypedFunCall, TypedIfThen, TypedList, TypedListIndex, TypedSpanExpr,
+        TypedUnaryOp,
+    },
+    Type, Types,
 };
 use llamac_utils::{spanned, Ident, Span, Spanned};
 
@@ -20,10 +27,10 @@ impl Engine {
             Expr::List(list) => self.infer_list(list, expr.span, expected),
             Expr::ListIndex(list_index) => self.infer_list_index(list_index, expr.span, expected),
             Expr::UnaryOp(unary_op) => self.infer_unary_op(unary_op, expr.span, expected),
-            Expr::BinaryOp(_) => todo!(),
-            Expr::FunCall(_) => todo!(),
-            Expr::Closure(_) => todo!(),
-            Expr::IfThen(_) => todo!(),
+            Expr::BinaryOp(binary_op) => self.infer_binary_op(binary_op, expr.span, expected),
+            Expr::FunCall(fun_call) => self.infer_fun_call(fun_call, expr.span, expected),
+            Expr::Closure(closure) => self.infer_closure(closure, expr.span, expected),
+            Expr::IfThen(if_then) => self.infer_if_then(if_then, expr.span, expected),
             Expr::Cond(_) => todo!(),
             Expr::Match(_) => todo!(),
             Expr::Block(_) => todo!(),
@@ -91,12 +98,13 @@ impl Engine {
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
         let item_type = self.fresh_var();
-        let mut new_items = Vec::with_capacity(list.len());
-        for expr in list {
-            let new_item = self.infer_expr(expr, spanned! {expected.span, item_type.clone()})?;
-            new_items.push(new_item);
-        }
-        let list_type = Type::List(spanned! {expected.span, Box::new(item_type)});
+        let new_items = list
+            .into_iter()
+            .map(|expr| -> InferResult<_> {
+                self.infer_expr(expr, spanned! {expected.span, item_type.clone()})
+            })
+            .collect::<InferResult<Vec<_>>>()?;
+        let list_type = Type::List(Box::new(item_type));
         self.constraints.push(Constraint::Equality {
             expected: expected.node,
             expected_span: expected.span,
@@ -119,7 +127,7 @@ impl Engine {
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
         let item_type = self.fresh_var();
-        let list_type = Type::List(spanned! {expected.span, Box::new(item_type.clone())});
+        let list_type = Type::List(Box::new(item_type.clone()));
         let new_list = self.infer_expr(list, spanned! {expected.span, list_type})?;
         let new_index = self.infer_expr(index, spanned! {expected.span, Type::Int})?;
         self.constraints.push(Constraint::Equality {
@@ -167,6 +175,241 @@ impl Engine {
                     value: new_value
                 }),
                 ty
+            ))
+        })
+    }
+
+    fn infer_binary_op(
+        &mut self,
+        BinaryOp { op, lhs, rhs }: BinaryOp,
+        span: Span,
+        expected: Spanned<Type>,
+    ) -> InferResult<TypedSpanExpr> {
+        let lhs_span = lhs.span;
+        let rhs_span = rhs.span;
+        // Ok so this isn't the ideal situation, but for operators that accept multiple types we can just make use of type variables and equality constraints and then check that the operands are of the correct type later down the line, like before emitting bytecode
+        let (lhs_ty, rhs_ty, out_ty) = match op {
+            BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
+                (Type::Int, Type::Int, Type::Int)
+            }
+            BinOp::FAdd | BinOp::FSub | BinOp::FMul | BinOp::FDiv => {
+                (Type::Float, Type::Float, Type::Float)
+            }
+            BinOp::And | BinOp::Or | BinOp::Xor => (Type::Bool, Type::Bool, Type::Bool),
+            BinOp::Eq | BinOp::Neq | BinOp::Lt | BinOp::Leq | BinOp::Gt | BinOp::Geq => {
+                let (lhs_ty, rhs_ty) = (self.fresh_var(), self.fresh_var());
+                (lhs_ty, rhs_ty, Type::Bool)
+            }
+            BinOp::Pipe => {
+                let (arg, r#in, ret_ty) = (self.fresh_var(), self.fresh_var(), self.fresh_var());
+                (
+                    arg,
+                    Type::Fun {
+                        params: Types(vec![r#in]),
+                        ret_ty: Box::new(ret_ty.clone()),
+                    },
+                    ret_ty,
+                )
+            }
+            BinOp::Concat => {
+                let (lhs_ty, rhs_ty) = (self.fresh_var(), self.fresh_var());
+                (lhs_ty.clone(), rhs_ty, lhs_ty)
+            }
+        };
+        let new_lhs = self.infer_expr(lhs, spanned! {expected.span, lhs_ty.clone()})?;
+        let new_rhs = self.infer_expr(rhs, spanned! {expected.span, rhs_ty.clone()})?;
+        self.constraints.push(match op {
+            BinOp::Pipe => Constraint::Equality {
+                expected: lhs_ty,
+                expected_span: lhs_span,
+                got: if let Type::Fun { params, .. } = rhs_ty {
+                    params.0[0].clone()
+                } else {
+                    unreachable!()
+                },
+                got_span: rhs_span,
+            },
+            _ => Constraint::Equality {
+                expected: lhs_ty,
+                expected_span: lhs_span,
+                got: rhs_ty,
+                got_span: rhs_span,
+            },
+        });
+        self.constraints.push(Constraint::Equality {
+            expected: expected.node,
+            expected_span: expected.span,
+            got: out_ty.clone(),
+            got_span: span,
+        });
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::BinaryOp(TypedBinaryOp {
+                    op,
+                    lhs: new_lhs,
+                    rhs: new_rhs,
+                }),
+                out_ty,
+            ))
+        })
+    }
+
+    fn infer_fun_call(
+        &mut self,
+        FunCall { fun, args }: FunCall,
+        span: Span,
+        expected: Spanned<Type>,
+    ) -> InferResult<TypedSpanExpr> {
+        let arg_tys = (0..args.node.0.len())
+            .map(|_| self.fresh_var())
+            .collect::<Vec<_>>();
+        let fun_ty = Type::Fun {
+            params: Types(arg_tys.clone()),
+            ret_ty: Box::new(expected.node.clone()),
+        };
+        let new_fun = self.infer_expr(fun, spanned! {expected.span, fun_ty})?;
+        let new_args = args.map_res(|FunArgs(args)| -> InferResult<_> {
+            Ok(TypedFunArgs(
+                args.into_iter()
+                    .zip(arg_tys)
+                    .map(|(arg, ty)| -> InferResult<_> {
+                        self.infer_expr(arg, spanned! {expected.span, ty})
+                    })
+                    .collect::<InferResult<Vec<_>>>()?,
+            ))
+        })?;
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::FunCall(TypedFunCall {
+                    fun: new_fun,
+                    args: new_args,
+                }),
+                expected.node
+            ))
+        })
+    }
+
+    fn infer_closure(
+        &mut self,
+        Closure {
+            params,
+            ret_ty,
+            body,
+        }: Closure,
+        span: Span,
+        expected: Spanned<Type>,
+    ) -> InferResult<TypedSpanExpr> {
+        let fake_span: Span = (params.span.end..params.span.end).into();
+        let new_ret_ty = ret_ty
+            .map(|ret_ty| ret_ty.map_ref(Type::from))
+            .unwrap_or_else(|| spanned! {fake_span, self.fresh_var()});
+        let new_param_tys = Types(
+            params
+                .node
+                .0
+                .clone()
+                .into_iter()
+                .map(|param| {
+                    param
+                        .node
+                        .annot
+                        .map(|ret_ty| (&ret_ty.node).into())
+                        .unwrap_or_else(|| self.fresh_var())
+                })
+                .collect(),
+        );
+        let new_params = params.map(|params| {
+            TypedClosureParams(
+                params
+                    .0
+                    .into_iter()
+                    .zip(new_param_tys.0.clone())
+                    .map(|(param, ty)| {
+                        spanned! {
+                            param.span,
+                            TypedClosureParam {
+                                name: param.node.name,
+                                annot: ty,
+                            }
+                        }
+                    })
+                    .collect(),
+            )
+        });
+        self.enter_scope();
+        for Spanned {
+            node: TypedClosureParam { name, annot },
+            ..
+        } in new_params.node.0.iter()
+        {
+            self.extend(name.node.clone(), annot.clone(), name.span);
+        }
+        let new_body = self.infer_expr(body, new_ret_ty.clone())?;
+        self.exit_scope();
+        let fun_ty = Type::Fun {
+            params: new_param_tys,
+            ret_ty: Box::new(new_ret_ty.node.clone()),
+        };
+        self.constraints.push(Constraint::Equality {
+            expected: expected.node,
+            expected_span: expected.span,
+            got: fun_ty.clone(),
+            got_span: span,
+        });
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::Closure(TypedClosure {
+                    params: new_params,
+                    ret_ty: new_ret_ty,
+                    body: new_body
+                }),
+                fun_ty
+            ))
+        })
+    }
+
+    fn infer_if_then(
+        &mut self,
+        IfThen { cond, then, r#else }: IfThen,
+        span: Span,
+        expected: Spanned<Type>,
+    ) -> InferResult<TypedSpanExpr> {
+        let new_cond = self.infer_expr(cond, spanned! {expected.span, Type::Bool})?;
+        let then_ty = self.fresh_var();
+        let then_span = then.span;
+        let new_then = self.infer_expr(then, spanned! {expected.span, then_ty.clone()})?;
+        let new_else = if let Some(r#else) = r#else {
+            let else_ty = self.fresh_var();
+            let else_span = r#else.span;
+            let new_else = self.infer_expr(r#else, spanned! {expected.span, else_ty.clone()})?;
+            self.constraints.push(Constraint::Equality {
+                expected: then_ty.clone(),
+                expected_span: then_span,
+                got: else_ty,
+                got_span: else_span,
+            });
+            Some(new_else)
+        } else {
+            None
+        };
+        self.constraints.push(Constraint::Equality {
+            expected: expected.node,
+            expected_span: expected.span,
+            got: then_ty.clone(),
+            got_span: span,
+        });
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::IfThen(TypedIfThen {
+                    cond: new_cond,
+                    then: new_then,
+                    r#else: new_else,
+                }),
+                then_ty,
             ))
         })
     }

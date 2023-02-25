@@ -1,10 +1,11 @@
 use std::{
     collections::HashMap,
+    error::Error,
     fmt::{self, Display},
 };
 
 use llamac_ast::{
-    stmt::{Const, FunDef, FunParams},
+    stmt::{Const, FunDef},
     Item, SourceFile,
 };
 use llamac_typed_ast::{Type, TypedItem, TypedSourceFile, Types};
@@ -63,6 +64,8 @@ impl Display for InferError {
     }
 }
 
+impl Error for InferError {}
+
 impl Engine {
     pub fn new(env: HashMap<Ident, Spanned<Type>>) -> Self {
         Self {
@@ -88,8 +91,15 @@ impl Engine {
             let ty = match item {
                 Item::Const(Const { annot, .. }) => (&annot.node).into(),
                 Item::FunDef(FunDef { params, ret_ty, .. }) => {
-                    let params = params.map_ref(|FunParams(params)| Types(params.iter().map(|Spanned { span, node }| spanned! {*span, (&node.annot.node).into()}).collect()));
-                    let ret_ty = ret_ty.map_ref(|ty| Box::new(ty.into()));
+                    let params = Types(
+                        params
+                            .node
+                            .0
+                            .iter()
+                            .map(|Spanned { node, .. }| (&node.annot.node).into())
+                            .collect(),
+                    );
+                    let ret_ty = Box::new((&ret_ty.node).into());
                     Type::Fun { params, ret_ty }
                 }
             };

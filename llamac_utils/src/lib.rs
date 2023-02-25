@@ -1,4 +1,5 @@
 use std::{
+    error::Error,
     fmt::{self, Debug, Display},
     hash::Hash,
     ops::{Add, Index, Range},
@@ -75,13 +76,24 @@ pub struct Spanned<T: Debug + Display + Clone> {
 }
 
 impl<T: Debug + Display + Clone> Spanned<T> {
-    pub fn map<U: Debug + Display + Clone, F: Fn(T) -> U>(self, op: F) -> Spanned<U> {
+    pub fn map<U: Debug + Display + Clone, F: FnOnce(T) -> U>(self, op: F) -> Spanned<U> {
         Spanned {
             span: self.span,
             node: op(self.node),
         }
     }
-    pub fn map_ref<'a, U: Debug + Display + Clone, F: Fn(&'a T) -> U>(
+
+    pub fn map_res<U: Debug + Display + Clone, V: Error, F: FnOnce(T) -> Result<U, V>>(
+        self,
+        op: F,
+    ) -> Result<Spanned<U>, V> {
+        Ok(Spanned {
+            span: self.span,
+            node: op(self.node)?,
+        })
+    }
+
+    pub fn map_ref<'a, U: Debug + Display + Clone, F: FnOnce(&'a T) -> U>(
         &'a self,
         op: F,
     ) -> Spanned<U> {
@@ -90,7 +102,8 @@ impl<T: Debug + Display + Clone> Spanned<T> {
             node: op(&self.node),
         }
     }
-    pub fn map_span<F: Fn(Span) -> Span>(self, op: F) -> Spanned<T> {
+
+    pub fn map_span<F: FnOnce(Span) -> Span>(self, op: F) -> Spanned<T> {
         Spanned {
             span: op(self.span),
             node: self.node,

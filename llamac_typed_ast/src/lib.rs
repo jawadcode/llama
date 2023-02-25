@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use llamac_utils::{spanned, FmtItems, Spanned};
+use llamac_utils::{FmtItems, Spanned};
 use stmt::{TypedConst, TypedFunDef};
 
 pub mod expr;
@@ -41,7 +41,7 @@ impl Display for TypedItem {
 }
 
 #[derive(Debug, Clone)]
-pub struct Types(pub Vec<Spanned<Type>>);
+pub struct Types(pub Vec<Type>);
 
 impl Display for Types {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -54,10 +54,10 @@ pub enum Type {
     Var(usize),
     /// Type constructors
     Fun {
-        params: Spanned<Types>,
-        ret_ty: Spanned<Box<Self>>,
+        params: Types,
+        ret_ty: Box<Self>,
     },
-    List(Spanned<Box<Type>>),
+    List(Box<Type>),
     // Primitives
     Unit,
     Bool,
@@ -92,7 +92,7 @@ impl From<&llamac_ast::stmt::Types> for Types {
             value
                 .0
                 .iter()
-                .map(|Spanned { span, node }| spanned! {*span, node.into()})
+                .map(|Spanned { node, .. }| node.into())
                 .collect(),
         )
     }
@@ -103,18 +103,18 @@ impl From<&llamac_ast::stmt::Type> for Type {
         use llamac_ast::stmt::Type as SType;
         match value {
             SType::Fun { params, ret_ty } => {
-                let new_params: Vec<Spanned<Type>> = params
+                let new_params: Vec<Type> = params
                     .node
                     .0
                     .iter()
-                    .map(|Spanned { span, node }| spanned! {*span, node.into()})
+                    .map(|Spanned { node, .. }| node.into())
                     .collect();
                 Type::Fun {
-                    params: spanned! {params.span, Types(new_params)},
-                    ret_ty: ret_ty.map_ref(|ty| Box::new(ty.as_ref().into())),
+                    params: Types(new_params),
+                    ret_ty: Box::new(ret_ty.node.as_ref().into()),
                 }
             }
-            SType::List(ty) => Type::List(ty.map_ref(|ty| Box::new(ty.as_ref().into()))),
+            SType::List(ty) => Type::List(Box::new(ty.node.as_ref().into())),
             SType::Unit => Type::Unit,
             SType::Bool => Type::Bool,
             SType::Int => Type::Int,

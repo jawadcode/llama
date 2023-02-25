@@ -118,7 +118,7 @@ impl Display for TypedBinaryOp {
 #[derive(Debug, Clone)]
 pub struct TypedClosure {
     pub params: Spanned<TypedClosureParams>,
-    pub ret_ty: Option<Spanned<Type>>,
+    pub ret_ty: Spanned<Type>,
     pub body: TypedSpanExpr,
 }
 
@@ -126,10 +126,8 @@ impl Display for TypedClosure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("fn ")?;
         self.params.fmt(f)?;
-        if let Some(ret_ty) = &self.ret_ty {
-            f.write_str(" : ")?;
-            ret_ty.fmt(f)?;
-        }
+        f.write_str(" : ")?;
+        self.ret_ty.fmt(f)?;
         f.write_str(" => ")?;
         self.body.fmt(f)
     }
@@ -147,7 +145,7 @@ impl Display for TypedClosureParams {
 #[derive(Debug, Clone)]
 pub struct TypedClosureParam {
     pub name: Spanned<Ident>,
-    pub annot: Spanned<Type>,
+    pub annot: Type,
 }
 
 impl Display for TypedClosureParam {

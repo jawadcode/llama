@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use llamac_ast::expr::{
     BinOp, BinaryOp, Block, Closure, ClosureParam, ClosureParams, Cond, CondArm, CondArms, Expr,
     FunArgs, FunCall, IfThen, List, ListIndex, Literal, Match, MatchArm, MatchArms, MatchPattern,

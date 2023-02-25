@@ -60,21 +60,20 @@ impl Engine {
         let ret_ty: Spanned<Type> = ret_ty.map_ref(Type::from);
         if !top_level {
             let ty = Type::Fun {
-                params: params.clone().map(|params| {
-                    Types(
-                        params
-                            .0
-                            .into_iter()
-                            .map(
-                                |Spanned {
-                                     span: _,
-                                     node: TypedFunParam { name: _, annot },
-                                 }| annot,
-                            )
-                            .collect(),
-                    )
-                }),
-                ret_ty: ret_ty.clone().map(Box::new),
+                params: Types(
+                    params
+                        .node
+                        .0
+                        .iter()
+                        .map(
+                            |Spanned {
+                                 span: _,
+                                 node: TypedFunParam { name: _, annot },
+                             }| annot.node.clone(),
+                        )
+                        .collect(),
+                ),
+                ret_ty: Box::new(ret_ty.node.clone()),
             };
             self.extend(name.node.clone(), ty, name.span);
         }
