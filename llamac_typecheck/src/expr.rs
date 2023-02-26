@@ -1,12 +1,12 @@
 use llamac_ast::expr::{
-    BinOp, BinaryOp, Closure, Expr, FunArgs, FunCall, IfThen, List, ListIndex, Literal, SpanExpr,
-    UnOp, UnaryOp,
+    BinOp, BinaryOp, Closure, Cond, CondArm, Expr, FunArgs, FunCall, IfThen, List, ListIndex,
+    Literal, SpanExpr, UnOp, UnaryOp,
 };
 use llamac_typed_ast::{
     expr::{
-        InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams, TypedExpr,
-        TypedFunArgs, TypedFunCall, TypedIfThen, TypedList, TypedListIndex, TypedSpanExpr,
-        TypedUnaryOp,
+        InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams,
+        TypedCondArm, TypedCondArms, TypedCondExpr, TypedExpr, TypedFunArgs, TypedFunCall,
+        TypedIfThenExpr, TypedList, TypedListIndex, TypedSpanExpr, TypedUnaryOp,
     },
     Type, Types,
 };
@@ -31,7 +31,7 @@ impl Engine {
             Expr::FunCall(fun_call) => self.infer_fun_call(fun_call, expr.span, expected),
             Expr::Closure(closure) => self.infer_closure(closure, expr.span, expected),
             Expr::IfThen(if_then) => self.infer_if_then(if_then, expr.span, expected),
-            Expr::Cond(_) => todo!(),
+            Expr::Cond(cond) => self.infer_cond_expr(cond, expr.span, expected),
             Expr::Match(_) => todo!(),
             Expr::Block(_) => todo!(),
             Expr::Stmt(_) => todo!(),
@@ -379,37 +379,85 @@ impl Engine {
     ) -> InferResult<TypedSpanExpr> {
         let new_cond = self.infer_expr(cond, spanned! {expected.span, Type::Bool})?;
         let then_ty = self.fresh_var();
-        let then_span = then.span;
         let new_then = self.infer_expr(then, spanned! {expected.span, then_ty.clone()})?;
-        let new_else = if let Some(r#else) = r#else {
-            let else_ty = self.fresh_var();
-            let else_span = r#else.span;
-            let new_else = self.infer_expr(r#else, spanned! {expected.span, else_ty.clone()})?;
-            self.constraints.push(Constraint::Equality {
-                expected: then_ty.clone(),
-                expected_span: then_span,
-                got: else_ty,
-                got_span: else_span,
-            });
-            Some(new_else)
-        } else {
-            None
-        };
+
+        let r#else = r#else.ok_or(InferError::MissingElseBranch { span })?;
+        let else_ty = self.fresh_var();
+        let new_else = self.infer_expr(r#else, spanned! {expected.span, else_ty.clone()})?;
         self.constraints.push(Constraint::Equality {
-            expected: expected.node,
+            expected: then_ty.clone(),
+            expected_span: new_then.span,
+            got: else_ty,
+            got_span: new_else.span,
+        });
+        self.constraints.push(Constraint::Equality {
+            expected: expected.node.clone(),
             expected_span: expected.span,
-            got: then_ty.clone(),
+            got: then_ty,
             got_span: span,
         });
         Ok(spanned! {
             span,
             Box::new(TypedExpr(
-                InnerExpr::IfThen(TypedIfThen {
+                InnerExpr::IfThen(TypedIfThenExpr {
                     cond: new_cond,
                     then: new_then,
                     r#else: new_else,
                 }),
-                then_ty,
+                expected.node,
+            ))
+        })
+    }
+
+    fn infer_cond_expr(
+        &mut self,
+        Cond { arms, r#else }: Cond,
+        span: Span,
+        expected: Spanned<Type>,
+    ) -> InferResult<TypedSpanExpr> {
+        let r#else = r#else.ok_or(InferError::MissingElseBranch { span })?;
+        let else_ty = self.fresh_var();
+        let new_else = self.infer_expr(r#else, spanned! {expected.span, else_ty.clone()})?;
+        let new_arms = arms.map_res(|arms| {
+            Ok(TypedCondArms(
+                arms.0
+                    .into_iter()
+                    .map(|Spanned { span, node: CondArm { cond, branch } }|
+                        Ok(spanned! {
+                            span,
+                            {
+                                let cond = self.infer_expr(cond, spanned! {expected.span, Type::Bool})?;
+                                let branch_ty = self.fresh_var();
+                                let branch = self.infer_expr(branch, spanned! {expected.span, branch_ty.clone()})?;
+                                // a `.map()` with side-effects :trollface:
+                                self.constraints.push(Constraint::Equality {
+                                    expected: else_ty.clone(),
+                                    expected_span: new_else.span,
+                                    got: branch_ty,
+                                    got_span: branch.span,
+                                });
+                                TypedCondArm { cond, branch }
+                            }
+                        })
+                    )
+                    .collect::<InferResult<Vec<_>>>()?,
+            ))
+        })?;
+
+        self.constraints.push(Constraint::Equality {
+            expected: expected.node,
+            expected_span: expected.span,
+            got: else_ty.clone(),
+            got_span: new_else.span,
+        });
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::Cond(TypedCondExpr {
+                    arms: new_arms,
+                    r#else: new_else,
+                }),
+                else_ty
             ))
         })
     }

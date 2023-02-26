@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use llamac_utils::{FmtItems, Ident, Spanned};
 
 use crate::{
-    expr::{TypedCond, TypedIfThen, TypedMatch, TypedSpanExpr},
+    expr::{TypedCondArms, TypedMatch, TypedSpanExpr},
     Type,
 };
 
@@ -14,8 +14,8 @@ pub enum TypedStmt {
     Const(TypedConst),
     LetBind(TypedLetBind),
     FunDef(TypedFunDef),
-    IfThen(TypedIfThen),
-    Cond(TypedCond),
+    IfThen(TypedIfThenStmt),
+    Cond(TypedCondStmt),
     Match(TypedMatch),
 }
 
@@ -101,5 +101,39 @@ pub struct TypedFunParam {
 impl Display for TypedFunParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} : {}", self.name, self.annot)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TypedIfThenStmt {
+    pub cond: TypedSpanExpr,
+    pub then: TypedSpanExpr,
+    pub r#else: Option<TypedSpanExpr>,
+}
+
+impl Display for TypedIfThenStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "if {} then {}", self.cond, self.then)?;
+        if let Some(r#else) = &self.r#else {
+            write!(f, " else {}", r#else)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TypedCondStmt {
+    pub arms: Spanned<TypedCondArms>,
+    pub r#else: Option<TypedSpanExpr>,
+}
+
+impl Display for TypedCondStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "cond {}", self.arms)?;
+        if let Some(r#else) = &self.r#else {
+            write!(f, " | else => {}", r#else)?;
+        }
+        f.write_str(" end")
     }
 }

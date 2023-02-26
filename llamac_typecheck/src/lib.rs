@@ -56,6 +56,7 @@ pub type InferResult<T> = Result<T, InferError>;
 #[derive(Debug, Clone)]
 pub enum InferError {
     NotFound { ident: Ident, span: Span },
+    MissingElseBranch { span: Span },
 }
 
 impl Display for InferError {

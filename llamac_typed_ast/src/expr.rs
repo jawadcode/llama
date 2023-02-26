@@ -20,8 +20,8 @@ pub enum InnerExpr {
     BinaryOp(TypedBinaryOp),
     FunCall(TypedFunCall),
     Closure(TypedClosure),
-    IfThen(TypedIfThen),
-    Cond(TypedCond),
+    IfThen(TypedIfThenExpr),
+    Cond(TypedCondExpr),
     Match(TypedMatch),
     Block(TypedBlock),
     Stmt(TypedSpanStmt),
@@ -155,37 +155,29 @@ impl Display for TypedClosureParam {
 }
 
 #[derive(Debug, Clone)]
-pub struct TypedIfThen {
+pub struct TypedIfThenExpr {
     pub cond: TypedSpanExpr,
     pub then: TypedSpanExpr,
-    /// Is optional when used as a statement
-    pub r#else: Option<TypedSpanExpr>,
+    pub r#else: TypedSpanExpr,
 }
 
-impl Display for TypedIfThen {
+impl Display for TypedIfThenExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "if {} then {}", self.cond, self.then)?;
-
-        if let Some(r#else) = &self.r#else {
-            write!(f, " else {else}")
-        } else {
-            Ok(())
-        }
+        write!(f, " else {}", self.r#else)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct TypedCond {
+pub struct TypedCondExpr {
     pub arms: Spanned<TypedCondArms>,
-    pub r#else: Option<TypedSpanExpr>,
+    pub r#else: TypedSpanExpr,
 }
 
-impl Display for TypedCond {
+impl Display for TypedCondExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "cond {}", self.arms)?;
-        if let Some(r#else) = &self.r#else {
-            write!(f, " | else => {else}")?;
-        }
+        write!(f, " | else => {}", self.r#else)?;
         f.write_str(" end")
     }
 }
