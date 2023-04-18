@@ -30,6 +30,8 @@ dependencies = [
  "llamac_ast",
  "llamac_parser",
  "llamac_typecheck",
+ "llamac_typed_ast",
+ "llamac_utils",
 ]
 
 [[package]]

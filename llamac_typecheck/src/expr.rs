@@ -1,12 +1,13 @@
 use llamac_ast::expr::{
     BinOp, BinaryOp, Closure, Cond, CondArm, Expr, FunArgs, FunCall, IfThen, List, ListIndex,
-    Literal, SpanExpr, UnOp, UnaryOp,
+    Literal, Match, MatchArm, MatchArms, MatchPattern, SpanExpr, UnOp, UnaryOp,
 };
 use llamac_typed_ast::{
     expr::{
         InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams,
         TypedCondArm, TypedCondArms, TypedCondExpr, TypedExpr, TypedFunArgs, TypedFunCall,
-        TypedIfThenExpr, TypedList, TypedListIndex, TypedSpanExpr, TypedUnaryOp,
+        TypedIfThenExpr, TypedList, TypedListIndex, TypedMatchArm, TypedMatchArms, TypedSpanExpr,
+        TypedUnaryOp,
     },
     Type, Types,
 };
@@ -32,7 +33,7 @@ impl Engine {
             Expr::Closure(closure) => self.infer_closure(closure, expr.span, expected),
             Expr::IfThen(if_then) => self.infer_if_then(if_then, expr.span, expected),
             Expr::Cond(cond) => self.infer_cond_expr(cond, expr.span, expected),
-            Expr::Match(_) => todo!(),
+            Expr::Match(r#match) => self.infer_match_expr(r#match, expr.span, expected),
             Expr::Block(_) => todo!(),
             Expr::Stmt(_) => todo!(),
         }
@@ -378,12 +379,14 @@ impl Engine {
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
         let new_cond = self.infer_expr(cond, spanned! {expected.span, Type::Bool})?;
+
         let then_ty = self.fresh_var();
         let new_then = self.infer_expr(then, spanned! {expected.span, then_ty.clone()})?;
 
         let r#else = r#else.ok_or(InferError::MissingElseBranch { span })?;
         let else_ty = self.fresh_var();
         let new_else = self.infer_expr(r#else, spanned! {expected.span, else_ty.clone()})?;
+
         self.constraints.push(Constraint::Equality {
             expected: then_ty.clone(),
             expected_span: new_then.span,
@@ -396,6 +399,7 @@ impl Engine {
             got: then_ty,
             got_span: span,
         });
+
         Ok(spanned! {
             span,
             Box::new(TypedExpr(
@@ -460,5 +464,58 @@ impl Engine {
                 else_ty
             ))
         })
+    }
+
+    fn infer_match_expr(
+        &mut self,
+        Match { expr, arms }: Match,
+        span: Span,
+        expected: Spanned<Type>,
+    ) -> InferResult<TypedSpanExpr> {
+        let expr_ty = self.fresh_var();
+        let new_expr = self.infer_expr(expr, spanned! {expected.span, expr_ty.clone()})?;
+
+        let new_arms = arms.map_res(|MatchArms(arms)| -> InferResult<TypedMatchArms> {
+            Ok(TypedMatchArms(
+                arms.into_iter()
+                    .map(|arm| {
+                        arm.map_res(
+                            |MatchArm { patterns, branch }| -> InferResult<TypedMatchArm> {
+                                for Spanned {
+                                    span,
+                                    node: pattern,
+                                } in patterns.node.0.iter()
+                                {
+                                    let pattern_ty = match pattern {
+                                        MatchPattern::Wildcard | MatchPattern::NamedWildcard(_) => {
+                                            self.fresh_var()
+                                        }
+                                        MatchPattern::Literal(lit) => match lit {
+                                            Literal::Unit => Type::Unit,
+                                            Literal::String(_) => Type::String,
+                                            Literal::Int(_) => Type::Int,
+                                            Literal::Float(_) => Type::Float,
+                                            Literal::Bool(_) => Type::Bool,
+                                        },
+                                    };
+                                    self.constraints.push(Constraint::Equality {
+                                        expected: expr_ty.clone(),
+                                        expected_span: new_expr.span,
+                                        got: pattern_ty,
+                                        got_span: *span,
+                                    });
+                                }
+                                let new_branch = self.infer_expr(branch, expected.clone())?;
+                                Ok(TypedMatchArm {
+                                    patterns,
+                                    branch: new_branch,
+                                })
+                            },
+                        )
+                    })
+                    .collect::<InferResult<Vec<_>>>()?,
+            ))
+        })?;
+        todo!()
     }
 }
