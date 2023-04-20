@@ -1,13 +1,13 @@
 use llamac_ast::expr::{
-    BinOp, BinaryOp, Closure, Cond, CondArm, Expr, FunArgs, FunCall, IfThen, List, ListIndex,
-    Literal, Match, MatchArm, MatchArms, MatchPattern, SpanExpr, UnOp, UnaryOp,
+    BinOp, BinaryOp, Block, Closure, Cond, CondArm, Expr, FunArgs, FunCall, IfThen, List,
+    ListIndex, Literal, Match, MatchArm, MatchArms, MatchPattern, SpanExpr, UnOp, UnaryOp,
 };
 use llamac_typed_ast::{
     expr::{
         InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams,
         TypedCondArm, TypedCondArms, TypedCondExpr, TypedExpr, TypedFunArgs, TypedFunCall,
-        TypedIfThenExpr, TypedList, TypedListIndex, TypedMatchArm, TypedMatchArms, TypedSpanExpr,
-        TypedUnaryOp,
+        TypedIfThenExpr, TypedList, TypedListIndex, TypedMatch, TypedMatchArm, TypedMatchArms,
+        TypedSpanExpr, TypedUnaryOp,
     },
     Type, Types,
 };
@@ -34,7 +34,7 @@ impl Engine {
             Expr::IfThen(if_then) => self.infer_if_then(if_then, expr.span, expected),
             Expr::Cond(cond) => self.infer_cond_expr(cond, expr.span, expected),
             Expr::Match(r#match) => self.infer_match_expr(r#match, expr.span, expected),
-            Expr::Block(_) => todo!(),
+            Expr::Block(block) => self.infer_block_expr(block, expr.span, expected),
             Expr::Stmt(_) => todo!(),
         }
     }
@@ -466,6 +466,7 @@ impl Engine {
         })
     }
 
+    // Does not perform exhaustivity checks on the match expression, this occurs after typechecking
     fn infer_match_expr(
         &mut self,
         Match { expr, arms }: Match,
@@ -474,7 +475,6 @@ impl Engine {
     ) -> InferResult<TypedSpanExpr> {
         let expr_ty = self.fresh_var();
         let new_expr = self.infer_expr(expr, spanned! {expected.span, expr_ty.clone()})?;
-
         let new_arms = arms.map_res(|MatchArms(arms)| -> InferResult<TypedMatchArms> {
             Ok(TypedMatchArms(
                 arms.into_iter()
@@ -512,6 +512,24 @@ impl Engine {
                     .collect::<InferResult<Vec<_>>>()?,
             ))
         })?;
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::Match(TypedMatch {
+                    expr: new_expr,
+                    arms: new_arms,
+                }),
+                expected.node
+            ))
+        })
+    }
+
+    fn infer_block_expr(
+        &mut self,
+        Block(exprs): Block,
+        span: Span,
+        expected: Spanned<Type>,
+    ) -> InferResult<TypedSpanExpr> {
         todo!()
     }
 }
