@@ -479,39 +479,35 @@ impl Engine {
             Ok(TypedMatchArms(
                 arms.into_iter()
                     .map(|arm| {
-                        arm.map_res(
-                            |MatchArm { patterns, branch }| -> InferResult<TypedMatchArm> {
-                                for Spanned {
-                                    span,
-                                    node: pattern,
-                                } in patterns.node.0.iter()
-                                {
-                                    let pattern_ty = match pattern {
-                                        MatchPattern::Wildcard | MatchPattern::NamedWildcard(_) => {
-                                            self.fresh_var()
-                                        }
-                                        MatchPattern::Literal(lit) => match lit {
-                                            Literal::Unit => Type::Unit,
-                                            Literal::String(_) => Type::String,
-                                            Literal::Int(_) => Type::Int,
-                                            Literal::Float(_) => Type::Float,
-                                            Literal::Bool(_) => Type::Bool,
-                                        },
-                                    };
-                                    self.constraints.push(Constraint::Equality {
-                                        expected: expr_ty.clone(),
-                                        expected_span: new_expr.span,
-                                        got: pattern_ty,
-                                        got_span: *span,
-                                    });
-                                }
-                                let new_branch = self.infer_expr(branch, expected.clone())?;
-                                Ok(TypedMatchArm {
-                                    patterns,
-                                    branch: new_branch,
-                                })
-                            },
-                        )
+                        arm.map_res(|arm| -> InferResult<TypedMatchArm> {
+                            for pattern in arm.patterns.node.0.iter() {
+                                self.enter_scope();
+                                let pattern_ty = match &pattern.node {
+                                    MatchPattern::Wildcard | MatchPattern::NamedWildcard(_) => {
+                                        self.fresh_var()
+                                    }
+                                    MatchPattern::Literal(lit) => match lit {
+                                        Literal::Unit => Type::Unit,
+                                        Literal::String(_) => Type::String,
+                                        Literal::Int(_) => Type::Int,
+                                        Literal::Float(_) => Type::Float,
+                                        Literal::Bool(_) => Type::Bool,
+                                    },
+                                };
+                                self.constraints.push(Constraint::Equality {
+                                    expected: expr_ty.clone(),
+                                    expected_span: new_expr.span,
+                                    got: pattern_ty,
+                                    got_span: pattern.span,
+                                });
+                            }
+                            let new_branch = self.infer_expr(arm.branch, expected.clone())?;
+                            self.exit_scope();
+                            Ok(TypedMatchArm {
+                                patterns: arm.patterns,
+                                branch: new_branch,
+                            })
+                        })
                     })
                     .collect::<InferResult<Vec<_>>>()?,
             ))
