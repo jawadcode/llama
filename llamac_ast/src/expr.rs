@@ -72,7 +72,7 @@ pub struct List(pub Vec<SpanExpr>);
 
 impl Display for List {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}]", FmtItems::new(&self.0, ", "))
+        write!(f, "[{}]", FmtItems::new(self.0.iter(), ", "))
     }
 }
 
@@ -141,7 +141,7 @@ pub struct FunArgs(pub Vec<SpanExpr>);
 
 impl Display for FunArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})", FmtItems::new(&self.0, ", "))
+        write!(f, "({})", FmtItems::new(self.0.iter(), ", "))
     }
 }
 
@@ -231,7 +231,7 @@ pub struct ClosureParams(pub Vec<Spanned<ClosureParam>>);
 
 impl Display for ClosureParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        FmtItems::new(&self.0, ' ').fmt(f)
+        FmtItems::new(self.0.iter(), ' ').fmt(f)
     }
 }
 
@@ -292,7 +292,7 @@ pub struct CondArms(pub Vec<Spanned<CondArm>>);
 
 impl Display for CondArms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        FmtItems::new(&self.0, ' ').fmt(f)
+        FmtItems::new(self.0.iter(), ' ').fmt(f)
     }
 }
 
@@ -325,7 +325,7 @@ pub struct MatchArms(pub Vec<Spanned<MatchArm>>);
 
 impl Display for MatchArms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        FmtItems::new(&self.0, ' ').fmt(f)
+        FmtItems::new(self.0.iter(), ' ').fmt(f)
     }
 }
 
@@ -346,7 +346,7 @@ pub struct MatchPatterns(pub Vec<Spanned<MatchPattern>>);
 
 impl Display for MatchPatterns {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        FmtItems::new(&self.0, ", ").fmt(f)
+        FmtItems::new(self.0.iter(), ", ").fmt(f)
     }
 }
 
@@ -368,10 +368,21 @@ impl Display for MatchPattern {
 }
 
 #[derive(Debug, Clone)]
-pub struct Block(pub Vec<SpanExpr>);
+pub struct Block {
+    pub exprs: Vec<SpanExpr>,
+    pub tail: Option<SpanExpr>,
+}
 
 impl Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "do {} end", FmtItems::new(&self.0, "; "))
+        write!(
+            f,
+            "do {} end",
+            //TODO: Fix this shit or get rid of it
+            FmtItems::new(
+                self.exprs.iter().chain(self.tail.as_ref().into_iter()),
+                "; "
+            ),
+        )
     }
 }

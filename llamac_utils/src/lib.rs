@@ -1,8 +1,9 @@
 use std::{
+    cell::RefCell,
     error::Error,
     fmt::{self, Debug, Display},
     hash::Hash,
-    ops::{Add, Index, Range},
+    ops::{Add, DerefMut, Index, Range},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -127,24 +128,29 @@ macro_rules! spanned {
     };
 }
 
-pub struct FmtItems<'iter, I: Display, S: Display> {
-    items: &'iter [I],
-    sep: S,
+pub struct FmtItems<Things: Iterator<Item = Item>, Item: Display, Sep: Display> {
+    items: RefCell<Things>,
+    sep: Sep,
 }
 
-impl<'slice, I: Display, S: Display> FmtItems<'slice, I, S> {
-    pub fn new(items: &'slice [I], sep: S) -> Self {
-        Self { items, sep }
+impl<Things: Iterator<Item = Item>, Item: Display, Sep: Display> FmtItems<Things, Item, Sep> {
+    pub fn new(items: Things, sep: Sep) -> Self {
+        Self {
+            items: RefCell::new(items),
+            sep,
+        }
     }
 }
 
-impl<I: Display, S: Display> Display for FmtItems<'_, I, S> {
+impl<Things: Iterator<Item = Item>, Item: Display, Sep: Display> Display
+    for FmtItems<Things, Item, Sep>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.items.iter();
+        let mut iter = self.items.borrow_mut();
         if let Some(next) = iter.next() {
             next.fmt(f)?;
         }
-        for item in iter {
+        for item in iter.deref_mut() {
             self.sep.fmt(f)?;
             item.fmt(f)?;
         }

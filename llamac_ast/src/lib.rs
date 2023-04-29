@@ -20,7 +20,7 @@ impl Display for SourceFile {
             f,
             "(* {} *)\n\n{}",
             self.path.to_str().unwrap(),
-            FmtItems::new(&self.items, "\n")
+            FmtItems::new(self.items.iter(), "\n")
         )
     }
 }

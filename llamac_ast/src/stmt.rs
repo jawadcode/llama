@@ -88,7 +88,7 @@ pub struct FunParams(pub Vec<Spanned<FunParam>>);
 
 impl Display for FunParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})", FmtItems::new(&self.0, ", "))
+        write!(f, "({})", FmtItems::new(self.0.iter(), ", "))
     }
 }
 
@@ -109,7 +109,7 @@ pub struct Types(pub Vec<Spanned<Type>>);
 
 impl Display for Types {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}]", FmtItems::new(&self.0, ", "))
+        write!(f, "[{}]", FmtItems::new(self.0.iter(), ", "))
     }
 }
 

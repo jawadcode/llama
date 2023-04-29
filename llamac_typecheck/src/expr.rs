@@ -1,10 +1,10 @@
 use llamac_ast::expr::{
     BinOp, BinaryOp, Block, Closure, Cond, CondArm, Expr, FunArgs, FunCall, IfThen, List,
-    ListIndex, Literal, Match, MatchArm, MatchArms, MatchPattern, SpanExpr, UnOp, UnaryOp,
+    ListIndex, Literal, Match, MatchArms, MatchPattern, SpanExpr, UnOp, UnaryOp,
 };
 use llamac_typed_ast::{
     expr::{
-        InnerExpr, TypedBinaryOp, TypedClosure, TypedClosureParam, TypedClosureParams,
+        InnerExpr, TypedBinaryOp, TypedBlock, TypedClosure, TypedClosureParam, TypedClosureParams,
         TypedCondArm, TypedCondArms, TypedCondExpr, TypedExpr, TypedFunArgs, TypedFunCall,
         TypedIfThenExpr, TypedList, TypedListIndex, TypedMatch, TypedMatchArm, TypedMatchArms,
         TypedSpanExpr, TypedUnaryOp,
@@ -526,10 +526,23 @@ impl Engine {
 
     fn infer_block_expr(
         &mut self,
-        Block(exprs): Block,
+        Block { exprs, tail }: Block,
         span: Span,
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
+        self.enter_scope();
+        let new_exprs = todo!();
+        let Some(tail) = tail
+        else {
+            self.constraints.push(Constraint::Equality { expected: expected.node.clone(), expected_span: expected.span, got: Type::Unit, got_span: span });
+            return Ok(spanned! {
+                span,
+                Box::new(TypedExpr(
+                    InnerExpr::Block(TypedBlock(Vec::new())),
+                    expected.node
+                ))
+            });
+        };
         todo!()
     }
 }

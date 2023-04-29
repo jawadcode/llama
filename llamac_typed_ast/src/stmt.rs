@@ -88,7 +88,7 @@ pub struct TypedFunParams(pub Vec<Spanned<TypedFunParam>>);
 
 impl Display for TypedFunParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})", FmtItems::new(&self.0, ", "))
+        write!(f, "({})", FmtItems::new(self.0.iter(), ", "))
     }
 }
 

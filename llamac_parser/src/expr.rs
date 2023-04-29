@@ -299,12 +299,18 @@ impl Parser<'_> {
     pub(super) fn parse_block(&mut self) -> ParseResult<Spanned<Block>> {
         let r#do = self.lexer.next().unwrap();
         let mut exprs = Vec::new();
+        let mut tail = None;
         while !self.at(TK::End) {
             if self.at_any([TK::Const, TK::Let, TK::Fun, TK::If, TK::Cond, TK::Match]) {
                 let stmt = self.parse_stmt()?;
                 exprs.push(spanned! {stmt.span, Box::new(Expr::Stmt(stmt))});
             } else {
-                exprs.push(self.parse_expr()?);
+                let expr = self.parse_expr()?;
+                if self.at(TK::End) {
+                    tail = Some(expr);
+                } else {
+                    exprs.push(self.parse_expr()?);
+                }
             }
 
             if self.at(TK::Semicolon) {
@@ -314,7 +320,7 @@ impl Parser<'_> {
             }
         }
         let end = self.expect(TK::End)?;
-        Ok(spanned! {r#do.span + end.span, Block(exprs)})
+        Ok(spanned! {r#do.span + end.span, Block { exprs, tail }})
     }
 
     fn parse_grouping(&mut self) -> ParseResult<Spanned<Expr>> {

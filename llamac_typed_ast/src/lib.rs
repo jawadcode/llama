@@ -20,7 +20,7 @@ impl Display for TypedSourceFile {
             f,
             "(* {} *)\n\n{}",
             self.path.to_str().unwrap(),
-            FmtItems::new(&self.items, "\n")
+            FmtItems::new(self.items.iter(), "\n")
         )
     }
 }
@@ -45,7 +45,7 @@ pub struct Types(pub Vec<Type>);
 
 impl Display for Types {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}]", FmtItems::new(&self.0, ", "))
+        write!(f, "[{}]", FmtItems::new(self.0.iter(), ", "))
     }
 }
 

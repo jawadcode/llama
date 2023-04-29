@@ -53,7 +53,7 @@ pub struct TypedList(pub Vec<TypedSpanExpr>);
 
 impl Display for TypedList {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}]", FmtItems::new(&self.0, ", "))
+        write!(f, "[{}]", FmtItems::new(self.0.iter(), ", "))
     }
 }
 
@@ -105,7 +105,7 @@ pub struct TypedFunArgs(pub Vec<TypedSpanExpr>);
 
 impl Display for TypedFunArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})", FmtItems::new(&self.0, ", "))
+        write!(f, "({})", FmtItems::new(self.0.iter(), ", "))
     }
 }
 
@@ -138,7 +138,7 @@ pub struct TypedClosureParams(pub Vec<Spanned<TypedClosureParam>>);
 
 impl Display for TypedClosureParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        FmtItems::new(&self.0, ' ').fmt(f)
+        FmtItems::new(self.0.iter(), ' ').fmt(f)
     }
 }
 
@@ -187,7 +187,7 @@ pub struct TypedCondArms(pub Vec<Spanned<TypedCondArm>>);
 
 impl Display for TypedCondArms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        FmtItems::new(&self.0, ' ').fmt(f)
+        FmtItems::new(self.0.iter(), ' ').fmt(f)
     }
 }
 
@@ -220,7 +220,7 @@ pub struct TypedMatchArms(pub Vec<Spanned<TypedMatchArm>>);
 
 impl Display for TypedMatchArms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        FmtItems::new(&self.0, ' ').fmt(f)
+        FmtItems::new(self.0.iter(), ' ').fmt(f)
     }
 }
 
@@ -241,6 +241,6 @@ pub struct TypedBlock(pub Vec<TypedSpanExpr>);
 
 impl Display for TypedBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "do {} end", FmtItems::new(&self.0, "; "))
+        write!(f, "do {} end", FmtItems::new(self.0.iter(), "; "))
     }
 }
