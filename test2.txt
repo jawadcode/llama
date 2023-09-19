@@ -1,0 +1,4 @@
+fun test1() : Int do
+	if x then y else z;
+	if x then y else z
+end

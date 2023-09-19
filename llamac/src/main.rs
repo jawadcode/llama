@@ -10,8 +10,8 @@ fn main() {
     let file = fs::read_to_string(&filename).unwrap();
     match Parser::new(&file).parse_file(&PathBuf::from(&filename)) {
         Ok(source_file) => {
-            println!("Pretty Printed AST:\n{}", &source_file);
-            let typed_source_file = Engine::new(
+            println!("Pretty Printed AST:\n{:#?}", &source_file);
+            /* let typed_source_file = Engine::new(
                 [
                     (
                         Ident::new("print"),
@@ -49,7 +49,7 @@ fn main() {
             )
             .infer_source_file(source_file)
             .unwrap();
-            println!("Typed AST:\n{typed_source_file}");
+            println!("Typed AST:\n{typed_source_file}");*/
         }
         Err(err) => err.report(filename, &file),
     }

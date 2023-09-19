@@ -1,9 +1,15 @@
-use llamac_ast::stmt::{Const, FunDef, FunParam};
+use llamac_ast::{
+    expr::IfThen,
+    stmt::{Const, FunDef, FunParam, LetBind},
+};
 use llamac_typed_ast::{
-    stmt::{TypedConst, TypedFunDef, TypedFunParam, TypedFunParams},
+    stmt::{
+        TypedConst, TypedFunDef, TypedFunParam, TypedFunParams, TypedIfThenStmt, TypedSpanStmt,
+        TypedStmt,
+    },
     Type, Types,
 };
-use llamac_utils::Spanned;
+use llamac_utils::{spanned, Span, Spanned};
 
 use crate::{Engine, InferResult};
 
@@ -85,6 +91,35 @@ impl Engine {
             params,
             ret_ty,
             body,
+        })
+    }
+
+    fn infer_let_bind(
+        &mut self,
+        LetBind { name, annot, value }: LetBind,
+    ) -> InferResult<TypedSpanStmt> {
+        todo!()
+    }
+
+    pub(super) fn infer_if_stmt(
+        &mut self,
+        IfThen { cond, then, r#else }: IfThen,
+        span: Span,
+    ) -> InferResult<TypedSpanStmt> {
+        let new_cond = self.infer_expr(cond, spanned! {span, Type::Bool})?;
+        let new_then = self.infer_expr(then, spanned! {span, Type::Unit})?;
+        let new_else = if let Some(r#else) = r#else {
+            Some(self.infer_expr(r#else, spanned! {span, Type::Unit})?)
+        } else {
+            None
+        };
+        Ok(spanned! {
+            span,
+            TypedStmt::IfThen(TypedIfThenStmt {
+                cond: new_cond,
+                then: new_then,
+                r#else: new_else,
+            })
         })
     }
 }

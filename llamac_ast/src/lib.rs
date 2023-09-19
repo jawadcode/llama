@@ -9,6 +9,7 @@ use stmt::{Const, FunDef};
 pub mod expr;
 pub mod stmt;
 
+#[derive(Debug)]
 pub struct SourceFile {
     pub path: PathBuf,
     pub items: Vec<Spanned<Item>>,

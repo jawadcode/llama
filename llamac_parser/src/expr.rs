@@ -1,7 +1,15 @@
-use llamac_ast::expr::{
-    BinOp, BinaryOp, Block, Closure, ClosureParam, ClosureParams, Cond, CondArm, CondArms, Expr,
-    FunArgs, FunCall, IfThen, List, ListIndex, Literal, Match, MatchArm, MatchArms, MatchPattern,
-    MatchPatterns, SpanExpr, UnOp, UnaryOp,
+use std::{
+    fmt::{Debug, Display},
+    ops::ControlFlow,
+};
+
+use llamac_ast::{
+    expr::{
+        BinOp, BinaryOp, Block, Closure, ClosureParam, ClosureParams, Cond, CondArm, CondArms,
+        Expr, FunArgs, FunCall, IfThen, List, ListIndex, Literal, Match, MatchArm, MatchArms,
+        MatchPattern, MatchPatterns, SpanExpr, UnOp, UnaryOp,
+    },
+    stmt::Stmt,
 };
 
 use llamac_utils::{spanned, Ident, Spanned};
@@ -300,17 +308,40 @@ impl Parser<'_> {
         let r#do = self.lexer.next().unwrap();
         let mut exprs = Vec::new();
         let mut tail = None;
+
         while !self.at(TK::End) {
-            if self.at_any([TK::Const, TK::Let, TK::Fun, TK::If, TK::Cond, TK::Match]) {
+            let (expr, is_tail) = if self.at_any([TK::Const, TK::Let, TK::Fun]) {
                 let stmt = self.parse_stmt()?;
-                exprs.push(spanned! {stmt.span, Box::new(Expr::Stmt(stmt))});
+                (
+                    spanned! {stmt.span, Box::new(Expr::Stmt(stmt))},
+                    self.at(TK::End),
+                )
+            } else if self.at_any([TK::If, TK::Cond, TK::Match]) {
+                let peeked = self.peek();
+                match peeked {
+                    TK::If => {
+                        let if_then = self.parse_if()?;
+                        self.parse_control_flow(if_then, Expr::IfThen, Stmt::IfThen)
+                    }
+                    TK::Cond => {
+                        let cond = self.parse_cond()?;
+                        self.parse_control_flow(cond, Expr::Cond, Stmt::Cond)
+                    }
+                    TK::Match => {
+                        let r#match = self.parse_match()?;
+                        self.parse_control_flow(r#match, Expr::Match, Stmt::Match)
+                    }
+                    _ => unreachable!(),
+                }
             } else {
                 let expr = self.parse_expr()?;
-                if self.at(TK::End) {
-                    tail = Some(expr);
-                } else {
-                    exprs.push(self.parse_expr()?);
-                }
+                (expr, self.at(TK::End))
+            };
+
+            if is_tail {
+                tail = Some(expr);
+            } else {
+                exprs.push(expr);
             }
 
             if self.at(TK::Semicolon) {
@@ -321,6 +352,30 @@ impl Parser<'_> {
         }
         let end = self.expect(TK::End)?;
         Ok(spanned! {r#do.span + end.span, Block { exprs, tail }})
+    }
+
+    fn parse_control_flow<T: Clone + Debug + Display>(
+        &mut self,
+        cflow: Spanned<T>,
+        expr_ctor: fn(T) -> Expr,
+        stmt_ctor: fn(T) -> Stmt,
+    ) -> (SpanExpr, bool) {
+        if self.at(TK::End) {
+            (cflow.map(|cflow| Box::new(expr_ctor(cflow))), true)
+        } else {
+            (
+                spanned! {
+                    cflow.span,
+                    Box::new(Expr::Stmt(
+                        spanned! {
+                            cflow.span,
+                            stmt_ctor(cflow.node)
+                        }
+                    ))
+                },
+                false,
+            )
+        }
     }
 
     fn parse_grouping(&mut self) -> ParseResult<Spanned<Expr>> {

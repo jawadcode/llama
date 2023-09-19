@@ -237,10 +237,18 @@ impl Display for TypedMatchArm {
 }
 
 #[derive(Debug, Clone)]
-pub struct TypedBlock(pub Vec<TypedSpanExpr>);
+pub struct TypedBlock {
+    pub exprs: Vec<TypedSpanExpr>,
+    pub tail: Option<TypedSpanExpr>,
+}
 
 impl Display for TypedBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "do {} end", FmtItems::new(self.0.iter(), "; "))
+        write!(f, "do {}; ", FmtItems::new(self.exprs.iter(), "; "))?;
+        if let Some(tail) = &self.tail {
+            write!(f, "{} end", tail)
+        } else {
+            write!(f, "end")
+        }
     }
 }

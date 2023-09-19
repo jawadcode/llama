@@ -2,6 +2,7 @@
 
 members = [
   "llamac_utils",
+  "llamac_sexpr_fmt",
   "llamac_ast",
   "llamac_parser",
   "llamac_typed_ast",

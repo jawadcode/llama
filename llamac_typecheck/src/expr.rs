@@ -1,6 +1,9 @@
-use llamac_ast::expr::{
-    BinOp, BinaryOp, Block, Closure, Cond, CondArm, Expr, FunArgs, FunCall, IfThen, List,
-    ListIndex, Literal, Match, MatchArms, MatchPattern, SpanExpr, UnOp, UnaryOp,
+use llamac_ast::{
+    expr::{
+        BinOp, BinaryOp, Block, Closure, Cond, CondArm, Expr, FunArgs, FunCall, IfThen, List,
+        ListIndex, Literal, Match, MatchArms, MatchPattern, SpanExpr, UnOp, UnaryOp,
+    },
+    stmt::Stmt,
 };
 use llamac_typed_ast::{
     expr::{
@@ -9,6 +12,7 @@ use llamac_typed_ast::{
         TypedIfThenExpr, TypedList, TypedListIndex, TypedMatch, TypedMatchArm, TypedMatchArms,
         TypedSpanExpr, TypedUnaryOp,
     },
+    stmt::TypedStmt,
     Type, Types,
 };
 use llamac_utils::{spanned, Ident, Span, Spanned};
@@ -35,7 +39,7 @@ impl Engine {
             Expr::Cond(cond) => self.infer_cond_expr(cond, expr.span, expected),
             Expr::Match(r#match) => self.infer_match_expr(r#match, expr.span, expected),
             Expr::Block(block) => self.infer_block_expr(block, expr.span, expected),
-            Expr::Stmt(_) => todo!(),
+            Expr::Stmt(stmt) => self.infer_stmt_expr(stmt.node, stmt.span, expected),
         }
     }
 
@@ -433,7 +437,7 @@ impl Engine {
                                 let cond = self.infer_expr(cond, spanned! {expected.span, Type::Bool})?;
                                 let branch_ty = self.fresh_var();
                                 let branch = self.infer_expr(branch, spanned! {expected.span, branch_ty.clone()})?;
-                                // a `.map()` with side-effects :trollface:
+                                // a `.map()` with side-effects :troll:
                                 self.constraints.push(Constraint::Equality {
                                     expected: else_ty.clone(),
                                     expected_span: new_else.span,
@@ -531,18 +535,80 @@ impl Engine {
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
         self.enter_scope();
-        let new_exprs = todo!();
-        let Some(tail) = tail
-        else {
-            self.constraints.push(Constraint::Equality { expected: expected.node.clone(), expected_span: expected.span, got: Type::Unit, got_span: span });
-            return Ok(spanned! {
-                span,
-                Box::new(TypedExpr(
-                    InnerExpr::Block(TypedBlock(Vec::new())),
-                    expected.node
-                ))
+        let new_exprs = exprs
+            .into_iter()
+            .map(|expr| {
+                let ty = self.fresh_var();
+                self.infer_expr(expr, spanned! {span, ty})
+            })
+            .collect::<InferResult<Vec<_>>>()?;
+        let new_tail = if let Some(tail) = tail {
+            let tail_type = self.fresh_var();
+            let tail_span = tail.span;
+            let new_tail = self.infer_expr(tail, spanned! {span, tail_type.clone()})?;
+            self.constraints.push(Constraint::Equality {
+                expected: expected.node.clone(),
+                expected_span: expected.span,
+                got: tail_type,
+                got_span: tail_span,
             });
+            Some(new_tail)
+        } else {
+            self.constraints.push(Constraint::Equality {
+                expected: expected.node.clone(),
+                expected_span: expected.span,
+                got: Type::Unit,
+                got_span: span,
+            });
+            None
         };
-        todo!()
+
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::Block(TypedBlock {
+                    exprs: new_exprs,
+                    tail: new_tail,
+                }),
+                expected.node
+            ))
+        })
+    }
+
+    fn infer_stmt_expr(
+        &mut self,
+        stmt: Stmt,
+        span: Span,
+        expected: Spanned<Type>,
+    ) -> InferResult<TypedSpanExpr> {
+        // TODO: When a if/cond/match is at the end of a block it should be parsed as an expression,
+        // so when parsing, we should wait until the semicolon is discovered to emit an expr stmt.
+        let new_stmt = match stmt {
+            Stmt::Const(r#const) => spanned! {
+                span,
+                self.infer_const(r#const, false).map(TypedStmt::Const)?
+            },
+            Stmt::LetBind(_) => todo!(),
+            Stmt::FunDef(fun_def) => spanned! {
+                span,
+                self.infer_fun_def(fun_def, false).map(TypedStmt::FunDef)?
+            },
+            Stmt::IfThen(if_then) => self.infer_if_stmt(if_then, span)?,
+            Stmt::Cond(_) => todo!(),
+            Stmt::Match(_) => todo!(),
+        };
+        self.constraints.push(Constraint::Equality {
+            expected: expected.node.clone(),
+            expected_span: expected.span,
+            got: Type::Unit,
+            got_span: span,
+        });
+        Ok(spanned! {
+            span,
+            Box::new(TypedExpr(
+                InnerExpr::Stmt(new_stmt),
+                expected.node,
+            ))
+        })
     }
 }
