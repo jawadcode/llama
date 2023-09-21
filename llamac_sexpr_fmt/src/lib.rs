@@ -200,13 +200,33 @@ enum-of-units::third"
         )
     }
 
-    #[test]
-    fn derive_enum_unnamed() {
-        /*#[derive(SExpFmt)]
-        enum EnumOfNamed {
-            First(#[metadata] Span, #[display] usize, #[display] usize),
-            Second(#[metadata] Span, #[display] usize, #[display] usize),
-            Third(#[metadata] Span, #[display] usize, #[display] usize),
-        }*/
-    }
+    /*
+        #[test]
+        fn derive_enum_unnamed() {
+            #[derive(SExpFmt)]
+            enum EnumOfUnnamed {
+                First(#[metadata] Span, #[display] usize, #[display] usize),
+                Second(#[metadata] Span, #[display] usize, #[display] usize),
+                Third(#[metadata] Span, #[display] usize, #[display] usize),
+            }
+
+            let test1 = EnumOfUnnamed::First(
+                Span {
+                    start: 123,
+                    end: 234,
+                },
+                1,
+                2,
+            );
+
+            assert_eq!(
+                test1.to_string(),
+                r"
+    (enum-of-unnamed::first    ; span: 123..234
+        1
+        2)"
+                .trim_start()
+            );
+        }
+        */
 }

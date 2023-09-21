@@ -1,11 +1,9 @@
 extern crate proc_macro;
 
-use std::fmt::Pointer;
-
 use convert_case::{Case, Casing};
 use itertools::Itertools;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{
     parse, spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Error, Fields,
     FieldsNamed, FieldsUnnamed, Index, Lit, Meta, MetaNameValue, Path, Variant,
@@ -85,7 +83,13 @@ fn impl_sexp_fmt(ast: DeriveInput) -> syn::Result<TokenStream> {
     })
 }
 
-#[derive(Clone, PartialEq)]
+struct FieldsImpl {
+    comment: TokenStream,
+    metadata: Vec<TokenStream>,
+    fields: Vec<TokenStream>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
 enum FmtType {
     // Use `Display::fmt`
     Metadata,
@@ -97,80 +101,169 @@ enum FmtType {
     Normal,
 }
 
+trait GenFmtImpl: Sized {
+    const DEPTH_ADD: usize;
+    const NAMED: bool;
+
+    fn get_fmt_type(&self) -> FmtType;
+    fn access(&self) -> TokenStream;
+    fn get_field_name(&self) -> TokenStream;
+
+    fn gen_fmt_call(&self) -> TokenStream {
+        let access = self.access();
+        let add = Self::DEPTH_ADD;
+        let (field_indent, space) = if Self::NAMED {
+            (
+                quote! { f.write_str("\n        ")?; },
+                quote! { f.write_char(' ')?; },
+            )
+        } else {
+            (TokenStream::new(), TokenStream::new())
+        };
+        match self.get_fmt_type() {
+            FmtType::Metadata => unreachable!(),
+            FmtType::Display => quote! {
+                #space
+                std::fmt::Display::fmt(&#access, f)?;
+            },
+            FmtType::Debug => quote! {
+                #space
+                std::fmt::Debug::fmt(&#access, f)?;
+            },
+            FmtType::Normal => quote! {
+                #field_indent
+                #access.sexp_fmt(f, depth + #add)?;
+            },
+        }
+    }
+
+    fn gen_fmt_impl(mut fields: Vec<Self>) -> FieldsImpl {
+        let split = itertools::partition(&mut fields, |field| {
+            field.get_fmt_type() == FmtType::Metadata
+        });
+        let (metadata, fields) = fields.split_at(split);
+
+        let metadata_sep = quote! { f.write_str(", ")?; };
+        let metadata: Vec<TokenStream> = Itertools::intersperse(
+            metadata.iter().map(|field| {
+                let access = field.access();
+                quote! {
+                    #access.fmt(f)?;
+                }
+            }),
+            metadata_sep,
+        )
+        .collect();
+        let comment = if !metadata.is_empty() {
+            quote! { f.write_str("    ; ")?; }
+        } else {
+            TokenStream::new()
+        };
+
+        let fields = fields
+            .iter()
+            .map(|field| {
+                let fmt_call = field.gen_fmt_call();
+                let field_name = field.get_field_name();
+                quote! {
+                    f.write_str("\n    ")?;
+                    for _ in 0..depth {
+                        f.write_str("    ")?;
+                    }
+                    #field_name
+                    #fmt_call
+                }
+            })
+            .collect();
+
+        FieldsImpl {
+            comment,
+            metadata,
+            fields,
+        }
+    }
+}
+
+struct SUField {
+    fmt_type: FmtType,
+    idx: usize,
+}
+
+impl GenFmtImpl for SUField {
+    const DEPTH_ADD: usize = 1;
+    const NAMED: bool = false;
+
+    fn get_fmt_type(&self) -> FmtType {
+        self.fmt_type
+    }
+
+    fn access(&self) -> TokenStream {
+        let idx = Index::from(self.idx);
+        quote! { self.#idx }
+    }
+
+    fn get_field_name(&self) -> TokenStream {
+        TokenStream::new()
+    }
+}
+
 fn impl_struct_unnamed_fields(
     name: &str,
     fields: FieldsUnnamed,
     idents: Idents<'_>,
 ) -> syn::Result<TokenStream> {
-    struct Field {
-        fmt_type: FmtType,
-        idx: usize,
-    }
-
-    let mut fields = fields
+    let fields = fields
         .unnamed
         .iter()
         .enumerate()
         .map(|(idx, field)| {
-            Ok(Field {
+            Ok(SUField {
                 fmt_type: get_fmt_type(&field.attrs, idents)?,
                 idx,
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
 
-    // TODO: Split fields into grops of metadata, display, debug, and normal
-
-    let split = itertools::partition(&mut fields, |field| field.fmt_type == FmtType::Metadata);
-    let (metadata, fields) = fields.split_at(split);
-
-    let metadata_sep = quote! { f.write_str(", ")?; };
-    let metadata_quote: Vec<TokenStream> = Itertools::intersperse(
-        metadata.iter().map(|field| {
-            let idx = Index::from(field.idx);
-            quote! {
-                self.#idx.fmt(f)?;
-            }
-        }),
-        metadata_sep,
-    )
-    .collect();
-    let comment = if !metadata_quote.is_empty() {
-        quote! { f.write_str("    ; ")?; }
-    } else {
-        quote! {}
-    };
-
-    let fields = fields.iter().map(|field| {
-        let idx = Index::from(field.idx);
-        let fmt_call = match field.fmt_type {
-            FmtType::Metadata => unreachable!(),
-            FmtType::Display => quote! {
-                std::fmt::Display::fmt(&self.#idx, f)?;
-            },
-            FmtType::Debug => quote! {
-                std::fmt::Debug::fmt(&self.#idx, f)?;
-            },
-            FmtType::Normal => quote! {
-                self.#idx.sexp_fmt(f, depth + 1)?;
-            },
-        };
-        quote! {
-            f.write_str("\n    ")?;
-            for _ in 0..depth {
-                f.write_str("    ")?;
-            }
-            #fmt_call
-        }
-    });
+    let FieldsImpl {
+        comment,
+        metadata,
+        fields,
+    } = GenFmtImpl::gen_fmt_impl(fields);
 
     Ok(quote! {
         f.write_str(concat!("(", #name))?;
         #comment
-        #(#metadata_quote)*
+        #(#metadata)*
         #(#fields)*
         f.write_char(')')?;
     })
+}
+
+struct SNField<'a> {
+    fmt_type: FmtType,
+    ident: &'a Ident,
+}
+
+impl GenFmtImpl for SNField<'_> {
+    const DEPTH_ADD: usize = 2;
+    const NAMED: bool = true;
+
+    fn get_fmt_type(&self) -> FmtType {
+        self.fmt_type
+    }
+
+    fn access(&self) -> TokenStream {
+        let Self { ident, .. } = self;
+        quote! { self.#ident }
+    }
+
+    fn get_field_name(&self) -> TokenStream {
+        let Self { ident, .. } = self;
+        quote! {
+            f.write_char(':')?;
+            f.write_str(stringify!(#ident))?;
+        }
+    }
 }
 
 fn impl_struct_named_fields(
@@ -178,79 +271,27 @@ fn impl_struct_named_fields(
     fields: FieldsNamed,
     idents: Idents<'_>,
 ) -> syn::Result<TokenStream> {
-    struct Field<'a> {
-        fmt_type: FmtType,
-        ident: &'a Ident,
-    }
-
-    let mut fields = fields
+    let fields = fields
         .named
         .iter()
         .map(|field| {
-            Ok(Field {
+            Ok(SNField {
                 fmt_type: get_fmt_type(&field.attrs, idents)?,
                 ident: field.ident.as_ref().unwrap(),
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
 
-    let split = itertools::partition(&mut fields, |field| field.fmt_type == FmtType::Metadata);
-    let (metadata, fields) = fields.split_at(split);
-
-    let metadata_sep = quote! { f.write_str(", ")?; };
-    let metadata_quote: Vec<TokenStream> = Itertools::intersperse(
-        metadata.iter().map(|Field { ident, .. }| {
-            quote! {
-                std::fmt::Display::fmt(&self.#ident, f)?;
-            }
-        }),
-        metadata_sep,
-    )
-    .collect();
-    let comment = if !metadata_quote.is_empty() {
-        quote! { f.write_str("    ; ")?; }
-    } else {
-        TokenStream::new()
-    };
-
-    let fields = fields.iter().map(
-        |Field {
-             fmt_type, ident, ..
-         }| {
-            let fmt_call = match fmt_type {
-                FmtType::Metadata => unreachable!(),
-                FmtType::Display => quote! {
-                    f.write_char(' ')?;
-                    std::fmt::Display::fmt(&self.#ident, f)?;
-                },
-                FmtType::Debug => quote! {
-                    f.write_char(' ')?;
-                    std::fmt::Debug::fmt(&self.#ident, f)?;
-                },
-                FmtType::Normal => quote! {
-                    f.write_str("\n        ")?;
-                    for _ in 0..depth {
-                        f.write_str("    ")?;
-                    }
-                    self.#ident.sexp_fmt(f, depth + 2)?;
-                },
-            };
-            quote! {
-                f.write_str("\n    ")?;
-                for _ in 0..depth {
-                    f.write_str("    ")?;
-                }
-                f.write_char(':')?;
-                f.write_str(stringify!(#ident))?;
-                #fmt_call
-            }
-        },
-    );
+    let FieldsImpl {
+        comment,
+        metadata,
+        fields,
+    } = GenFmtImpl::gen_fmt_impl(fields);
 
     Ok(quote! {
         f.write_str(concat!("(", #name))?;
         #comment
-        #(#metadata_quote)*
+        #(#metadata)*
         #(#fields)*
         f.write_char(')')?;
     })
@@ -324,14 +365,14 @@ fn impl_enum(
     })
 }
 
-/* de-duplicate all of this crap code */
-
+// TODO: Enum fmt impl
+/*
 fn impl_enum_named(
     name: &str,
     fields: FieldsNamed,
     idents: Idents<'_>,
 ) -> syn::Result<TokenStream> {
-    Ok(quote! {})
+    todo!()
 }
 
 fn impl_enum_unnamed(
@@ -339,28 +380,6 @@ fn impl_enum_unnamed(
     fields: FieldsUnnamed,
     idents: Idents<'_>,
 ) -> syn::Result<TokenStream> {
-    #[derive(Clone)]
-    struct Field {
-        fmt_type: FmtType,
-        ident: Ident,
-    }
-
-    let fields_ord = fields
-        .unnamed
-        .iter()
-        .enumerate()
-        .map(|(idx, field)| {
-            Ok(Field {
-                fmt_type: get_fmt_type(&field.attrs, idents)?,
-                ident: format_ident!("field{idx}"),
-            })
-        })
-        .collect::<syn::Result<Vec<_>>>()?;
-
-    let mut fields = fields_ord.clone();
-
-    let split = itertools::partition(&mut fields, |field| field.fmt_type == FmtType::Metadata);
-    let (metadata, fields) = fields.split_at(split);
-
-    Ok(quote! {})
+    todo!()
 }
+*/
