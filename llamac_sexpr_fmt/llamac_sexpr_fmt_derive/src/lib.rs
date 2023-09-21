@@ -3,7 +3,7 @@ extern crate proc_macro;
 use convert_case::{Case, Casing};
 use itertools::Itertools;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, format_ident};
+use quote::{format_ident, quote};
 use syn::{
     parse, spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Error, Fields,
     FieldsNamed, FieldsUnnamed, Index, Lit, Meta, MetaNameValue, Path, Variant,
@@ -355,12 +355,12 @@ fn impl_enum(
     })
 }
 
-struct EUField {
+struct VUField {
     fmt_type: FmtType,
     ident: Ident,
 }
 
-impl GenFmtImpl for EUField {
+impl GenFmtImpl for VUField {
     const DEPTH_ADD: usize = 1;
 
     const NAMED: bool = false;
@@ -385,16 +385,21 @@ fn impl_variant_unnamed(
     fields: FieldsUnnamed,
     idents: Idents<'_>,
 ) -> syn::Result<TokenStream> {
-    let field_names = (0..fields.unnamed.len()).map(|idx| format_ident!("e_u_field{idx}"));
-    let fields = fields
+    let (field_names, fields): (Vec<Ident>, Vec<VUField>) = fields
         .unnamed
         .iter()
         .enumerate()
-        .map(|(idx, field)| Ok(EUField {
-            fmt_type: get_fmt_type(&field.attrs, idents)?,
-            ident: format_ident!("e_u_field{idx}"),
-        }))
-        .collect::<syn::Result<Vec<_>>>()?;
+        .map(|(idx, field)| -> syn::Result<_> {
+            let field_name = format_ident!("e_u_field{idx}");
+            Ok((
+                field_name.clone(),
+                VUField {
+                    fmt_type: get_fmt_type(&field.attrs, idents)?,
+                    ident: field_name,
+                },
+            ))
+        })
+        .process_results(|fields| fields.unzip())?;
 
     let FieldsImpl {
         comment,
@@ -413,11 +418,68 @@ fn impl_variant_unnamed(
     })
 }
 
+struct VNField {
+    fmt_type: FmtType,
+    ident: Ident,
+}
+
+impl GenFmtImpl for VNField {
+    const DEPTH_ADD: usize = 2;
+    const NAMED: bool = true;
+
+    fn get_fmt_type(&self) -> FmtType {
+        self.fmt_type
+    }
+
+    fn access(&self) -> TokenStream {
+        let Self { ident, .. } = self;
+        quote! { #ident }
+    }
+
+    fn get_field_name(&self) -> TokenStream {
+        let Self { ident, .. } = self;
+        quote! {
+            f.write_char(':')?;
+            f.write_str(stringify!(#ident))?;
+        }
+    }
+}
+
 fn impl_variant_named(
     name: &str,
     ident: Ident,
     fields: FieldsNamed,
     idents: Idents<'_>,
 ) -> syn::Result<TokenStream> {
-    todo!()
+    let (field_names, fields): (Vec<Ident>, Vec<VNField>) = fields
+        .named
+        .iter()
+        .map(|field| -> syn::Result<_> {
+            // Guaranteed to be named, i.e. have an identifier
+            let field_name = field.ident.clone().unwrap();
+            Ok((
+                field_name.clone(),
+                VNField {
+                    fmt_type: get_fmt_type(&field.attrs, idents)?,
+                    ident: field_name,
+                },
+            ))
+        })
+        .process_results(|fields| fields.unzip())?;
+
+    let FieldsImpl {
+        comment,
+        metadata,
+        fields,
+    } = GenFmtImpl::gen_fmt_impl(fields);
+
+    Ok(quote! {
+        Self::#ident { #(#field_names),* } => {
+            f.write_str(concat!("(", #name))?;
+            #comment
+            #(#metadata)*
+            #(#fields)*
+            f.write_char(')')?;
+        }
+    })
 }
