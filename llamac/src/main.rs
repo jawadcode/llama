@@ -1,9 +1,6 @@
-use std::{collections::HashMap, env, fs, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 
 use llamac_parser::Parser;
-use llamac_typecheck::Engine;
-use llamac_typed_ast::{Type, Types};
-use llamac_utils::{spanned, Ident};
 
 fn main() {
     let filename = env::args().nth(1).unwrap();

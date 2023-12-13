@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Debug, Display},
-    ops::ControlFlow,
-};
+use std::fmt::{Debug, Display};
 
 use llamac_ast::{
     expr::{
@@ -232,13 +229,13 @@ impl Parser<'_> {
             if self.at(TK::Else) {
                 self.lexer.next().unwrap();
                 self.expect(TK::Arrow)?;
-                let branch = self.parse_expr()?;
-                r#else = Some(branch);
+                let target = self.parse_expr()?;
+                r#else = Some(target);
             } else {
                 let cond = self.parse_expr()?;
                 self.expect(TK::FatArrow)?;
-                let branch = self.parse_expr()?;
-                arms.push(spanned! {pipe.span + branch.span, CondArm { cond, branch }});
+                let target = self.parse_expr()?;
+                arms.push(spanned! {pipe.span + target.span, CondArm { cond, target }});
             }
         }
         let span = {
@@ -252,14 +249,14 @@ impl Parser<'_> {
 
     pub(super) fn parse_match(&mut self) -> ParseResult<Spanned<Match>> {
         let r#match = self.lexer.next().unwrap();
-        let expr = self.parse_expr()?;
+        let examinee = self.parse_expr()?;
         let mut arms = Vec::new();
         while !self.at(TK::End) {
             let pipe = self.expect(TK::Pipe)?;
             let patterns = self.parse_match_patterns()?;
             self.expect(TK::FatArrow)?;
-            let branch = self.parse_expr()?;
-            arms.push(spanned! {pipe.span + branch.span, MatchArm { patterns, branch }});
+            let target = self.parse_expr()?;
+            arms.push(spanned! {pipe.span + target.span, MatchArm { patterns, target }});
         }
         let span = {
             let first = arms.first().unwrap();
@@ -268,7 +265,7 @@ impl Parser<'_> {
         };
         let arms = spanned! {span, MatchArms(arms)};
         let end = self.expect(TK::End)?;
-        Ok(spanned! {r#match.span + end.span, Match { expr, arms }})
+        Ok(spanned! {r#match.span + end.span, Match { examinee, arms }})
     }
 
     fn parse_match_patterns(&mut self) -> ParseResult<Spanned<MatchPatterns>> {

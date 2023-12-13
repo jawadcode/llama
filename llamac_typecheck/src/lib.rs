@@ -110,14 +110,19 @@ impl Engine {
         dbg!(&self.context);
 
         // Actually typecheck the items
-        let mut new_items = Vec::with_capacity(items.len());
-        for Spanned { span, node: item } in items {
-            let new_item = match item {
-                Item::Const(r#const) => TypedItem::Const(self.infer_const(r#const, true)?),
-                Item::FunDef(fun_def) => TypedItem::FunDef(self.infer_fun_def(fun_def, true)?),
-            };
-            new_items.push(spanned! {span, new_item});
-        }
+        let new_items = items
+            .into_iter()
+            .map(|item| {
+                item.map_res(|item| {
+                    Ok(match item {
+                        Item::Const(r#const) => TypedItem::Const(self.infer_const(r#const, true)?),
+                        Item::FunDef(fun_def) => {
+                            TypedItem::FunDef(self.infer_fun_def(fun_def, true)?)
+                        }
+                    })
+                })
+            })
+            .collect::<InferResult<Vec<_>>>()?;
 
         Ok(TypedSourceFile {
             path,

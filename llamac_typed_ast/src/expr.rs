@@ -194,24 +194,24 @@ impl Display for TypedCondArms {
 #[derive(Debug, Clone)]
 pub struct TypedCondArm {
     pub cond: TypedSpanExpr,
-    pub branch: TypedSpanExpr,
+    pub target: TypedSpanExpr,
 }
 
 impl Display for TypedCondArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "| {} => {}", self.cond, self.branch)
+        write!(f, "| {} => {}", self.cond, self.target)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct TypedMatch {
-    pub expr: TypedSpanExpr,
+    pub examinee: TypedSpanExpr,
     pub arms: Spanned<TypedMatchArms>,
 }
 
 impl Display for TypedMatch {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "match {} {} end", self.expr, self.arms)
+        write!(f, "match {} {} end", self.examinee, self.arms)
     }
 }
 
@@ -227,12 +227,12 @@ impl Display for TypedMatchArms {
 #[derive(Debug, Clone)]
 pub struct TypedMatchArm {
     pub patterns: Spanned<MatchPatterns>,
-    pub branch: TypedSpanExpr,
+    pub target: TypedSpanExpr,
 }
 
 impl Display for TypedMatchArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "| {} => {}", self.patterns, self.branch)
+        write!(f, "| {} => {}", self.patterns, self.target)
     }
 }
 

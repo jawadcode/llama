@@ -479,26 +479,23 @@ impl Engine {
         })
     }
 
-    fn infer_match_expr(
+    // Does not perform exhaustivity checks on the match expression, this occurs after typechecking
+    pub(super) fn infer_match_expr(
         &mut self,
         r#match: Match,
         span: Span,
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
-        self.infer_match(r#match, span, expected.clone())
-            .map(|typed_match| {
-                typed_match.map(|typed_match| {
-                    Box::new(TypedExpr(InnerExpr::Match(typed_match), expected.node))
-                })
-            })
+        self.infer_match(r#match, expected.clone(), span).map(|typed_match| typed_match.map(|typed_match|
+            Box::new(TypedExpr(typed_match, expected.node))
+        ))
     }
 
-    // Does not perform exhaustivity checks on the match expression, this occurs after typechecking
-    pub(super) fn infer_match(
+    fn infer_match(
         &mut self,
         Match { examinee, arms }: Match,
-        span: Span,
         expected: Spanned<Type>,
+        span: Span,
     ) -> InferResult<Spanned<TypedMatch>> {
         let examinee_ty = self.fresh_var();
         let new_examinee =
@@ -524,7 +521,7 @@ impl Engine {
             TypedMatch {
                 examinee: new_examinee,
                 arms: new_arms,
-            }
+            },
         })
     }
 

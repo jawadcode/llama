@@ -48,7 +48,7 @@ impl Display for TypedConst {
 #[derive(Debug, Clone)]
 pub struct TypedLetBind {
     pub name: Spanned<Ident>,
-    pub annot: Option<Spanned<Type>>,
+    pub annot: Spanned<Type>,
     pub value: TypedSpanExpr,
 }
 
@@ -56,10 +56,8 @@ impl Display for TypedLetBind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("let ")?;
         self.name.fmt(f)?;
-        if let Some(annot) = &self.annot {
-            f.write_str(" : ")?;
-            annot.fmt(f)?;
-        }
+        f.write_str(" : ")?;
+        self.annot.fmt(f)?;
         f.write_str(" = ")?;
         self.value.fmt(f)
     }

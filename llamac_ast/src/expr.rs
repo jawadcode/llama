@@ -299,24 +299,25 @@ impl Display for CondArms {
 #[derive(Debug, Clone)]
 pub struct CondArm {
     pub cond: SpanExpr,
-    pub branch: SpanExpr,
+    pub target: SpanExpr,
 }
 
 impl Display for CondArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "| {} => {}", self.cond, self.branch)
+        write!(f, "| {} => {}", self.cond, self.target)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Match {
-    pub expr: SpanExpr,
+    /// The expression whose form is examined
+    pub examinee: SpanExpr,
     pub arms: Spanned<MatchArms>,
 }
 
 impl Display for Match {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "match {} {} end", self.expr, self.arms)
+        write!(f, "match {} {} end", self.examinee, self.arms)
     }
 }
 
@@ -332,12 +333,12 @@ impl Display for MatchArms {
 #[derive(Debug, Clone)]
 pub struct MatchArm {
     pub patterns: Spanned<MatchPatterns>,
-    pub branch: SpanExpr,
+    pub target: SpanExpr,
 }
 
 impl Display for MatchArm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "| {} => {}", self.patterns, self.branch)
+        write!(f, "| {} => {}", self.patterns, self.target)
     }
 }
 
