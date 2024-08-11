@@ -9,6 +9,7 @@ use stmt::{TypedConst, TypedFunDef};
 pub mod expr;
 pub mod stmt;
 
+#[derive(Debug, Clone)]
 pub struct TypedSourceFile {
     pub path: PathBuf,
     pub items: Vec<Spanned<TypedItem>>,
@@ -40,7 +41,7 @@ impl Display for TypedItem {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Types(pub Vec<Type>);
 
 impl Display for Types {
@@ -49,7 +50,7 @@ impl Display for Types {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Var(usize),
     /// Type constructors

@@ -3,6 +3,7 @@ use llamac_utils::{Span, Spanned};
 
 use crate::lexer::Token;
 
+#[derive(Debug)]
 pub enum SyntaxError {
     UnexpectedToken { expected: String, got: Token },
     InvalidLiteral(Token),

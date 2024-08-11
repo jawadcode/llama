@@ -15,7 +15,6 @@ pub enum InnerExpr {
     Ident(Ident),
     Literal(Literal),
     List(TypedList),
-    ListIndex(TypedListIndex),
     UnaryOp(TypedUnaryOp),
     BinaryOp(TypedBinaryOp),
     FunCall(TypedFunCall),
@@ -29,22 +28,22 @@ pub enum InnerExpr {
 
 impl Display for TypedExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_char('(')?;
         match &self.0 {
             InnerExpr::Ident(ident) => ident.fmt(f),
             InnerExpr::Literal(literal) => literal.fmt(f),
             InnerExpr::List(list) => list.fmt(f),
-            InnerExpr::ListIndex(list_index) => list_index.fmt(f),
             InnerExpr::UnaryOp(unary_op) => parens_fmt!(f, unary_op),
             InnerExpr::BinaryOp(binary_op) => parens_fmt!(f, binary_op),
-            InnerExpr::FunCall(fun_call) => fun_call.fmt(f),
+            InnerExpr::FunCall(fun_call) => parens_fmt!(f, fun_call),
             InnerExpr::Closure(closure) => parens_fmt!(f, closure),
             InnerExpr::IfThen(if_then) => if_then.fmt(f),
             InnerExpr::Cond(cond) => cond.fmt(f),
             InnerExpr::Match(r#match) => r#match.fmt(f),
             InnerExpr::Block(block) => block.fmt(f),
-            InnerExpr::Stmt(stmt) => parens_fmt!(f, stmt),
+            InnerExpr::Stmt(stmt) => stmt.fmt(f),
         }?;
-        write!(f, " : {}", self.1)
+        write!(f, " : {})", self.1)
     }
 }
 
@@ -58,20 +57,8 @@ impl Display for TypedList {
 }
 
 #[derive(Debug, Clone)]
-pub struct TypedListIndex {
-    pub list: TypedSpanExpr,
-    pub index: TypedSpanExpr,
-}
-
-impl Display for TypedListIndex {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}[{}]", self.list, self.index)
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct TypedUnaryOp {
-    pub op: UnOp,
+    pub op: Spanned<UnOp>,
     pub value: TypedSpanExpr,
 }
 
@@ -83,9 +70,15 @@ impl Display for TypedUnaryOp {
 
 #[derive(Debug, Clone)]
 pub struct TypedBinaryOp {
-    pub op: BinOp,
+    pub op: Spanned<BinOp>,
     pub lhs: TypedSpanExpr,
     pub rhs: TypedSpanExpr,
+}
+
+impl Display for TypedBinaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {} {}", self.lhs, self.op, self.rhs)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -96,7 +89,7 @@ pub struct TypedFunCall {
 
 impl Display for TypedFunCall {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.fun, self.args)
+        write!(f, "{} {}", self.fun, self.args)
     }
 }
 
@@ -105,13 +98,7 @@ pub struct TypedFunArgs(pub Vec<TypedSpanExpr>);
 
 impl Display for TypedFunArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})", FmtItems::new(self.0.iter(), ", "))
-    }
-}
-
-impl Display for TypedBinaryOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {} {}", self.lhs, self.op, self.rhs)
+        FmtItems::new(self.0.iter(), " ").fmt(f)
     }
 }
 

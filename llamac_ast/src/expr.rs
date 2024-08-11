@@ -14,7 +14,6 @@ pub enum Expr {
     Ident(Ident),
     Literal(Literal),
     List(List),
-    ListIndex(ListIndex),
     UnaryOp(UnaryOp),
     BinaryOp(BinaryOp),
     FunCall(FunCall),
@@ -32,7 +31,6 @@ impl Display for Expr {
             Expr::Ident(ident) => ident.fmt(f),
             Expr::Literal(literal) => literal.fmt(f),
             Expr::List(list) => list.fmt(f),
-            Expr::ListIndex(list_index) => list_index.fmt(f),
             Expr::UnaryOp(unary_op) => parens_fmt!(f, unary_op),
             Expr::BinaryOp(binary_op) => parens_fmt!(f, binary_op),
             Expr::FunCall(fun_call) => fun_call.fmt(f),
@@ -41,7 +39,7 @@ impl Display for Expr {
             Expr::Cond(cond) => cond.fmt(f),
             Expr::Match(r#match) => r#match.fmt(f),
             Expr::Block(block) => block.fmt(f),
-            Expr::Stmt(stmt) => parens_fmt!(f, stmt),
+            Expr::Stmt(stmt) => stmt.fmt(f),
         }
     }
 }
@@ -77,20 +75,8 @@ impl Display for List {
 }
 
 #[derive(Debug, Clone)]
-pub struct ListIndex {
-    pub list: SpanExpr,
-    pub index: SpanExpr,
-}
-
-impl Display for ListIndex {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}[{}]", self.list, self.index)
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct UnaryOp {
-    pub op: UnOp,
+    pub op: Spanned<UnOp>,
     pub value: SpanExpr,
 }
 
@@ -119,9 +105,15 @@ impl Display for UnOp {
 
 #[derive(Debug, Clone)]
 pub struct BinaryOp {
-    pub op: BinOp,
+    pub op: Spanned<BinOp>,
     pub lhs: SpanExpr,
     pub rhs: SpanExpr,
+}
+
+impl Display for BinaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {} {}", self.lhs, self.op, self.rhs)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -132,7 +124,7 @@ pub struct FunCall {
 
 impl Display for FunCall {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.fun, self.args)
+        write!(f, "({} {})", self.fun, self.args)
     }
 }
 
@@ -141,13 +133,7 @@ pub struct FunArgs(pub Vec<SpanExpr>);
 
 impl Display for FunArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})", FmtItems::new(self.0.iter(), ", "))
-    }
-}
-
-impl Display for BinaryOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {} {}", self.lhs, self.op, self.rhs)
+        FmtItems::new(self.0.iter(), " ").fmt(f)
     }
 }
 
@@ -166,7 +152,6 @@ pub enum BinOp {
     // Boolean Operators
     And,
     Or,
-    Xor,
     // Relational Operators
     Lt,
     Leq,
@@ -176,7 +161,7 @@ pub enum BinOp {
     Neq,
     // Misc
     Pipe,
-    Concat,
+    Cons,
 }
 
 impl Display for BinOp {
@@ -193,7 +178,6 @@ impl Display for BinOp {
             BinOp::FDiv => f.write_str("/."),
             BinOp::And => f.write_str("and"),
             BinOp::Or => f.write_str("or"),
-            BinOp::Xor => f.write_str("xor"),
             BinOp::Lt => f.write_char('<'),
             BinOp::Leq => f.write_str("<="),
             BinOp::Gt => f.write_char('>'),
@@ -201,7 +185,7 @@ impl Display for BinOp {
             BinOp::Eq => f.write_str("=="),
             BinOp::Neq => f.write_str("!="),
             BinOp::Pipe => f.write_str("|>"),
-            BinOp::Concat => f.write_str("++"),
+            BinOp::Cons => f.write_str(":"),
         }
     }
 }
@@ -310,7 +294,8 @@ impl Display for CondArm {
 
 #[derive(Debug, Clone)]
 pub struct Match {
-    /// The expression whose form is examined
+    /// The expression whose value is "examined", thought this might be a little
+    /// better of a name than "scrutinee".
     pub examinee: SpanExpr,
     pub arms: Spanned<MatchArms>,
 }
@@ -378,12 +363,14 @@ impl Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "do {} end",
+            "do {}; {}end",
             //TODO: Fix this shit or get rid of it
-            FmtItems::new(
-                self.exprs.iter().chain(self.tail.as_ref().into_iter()),
-                "; "
-            ),
+            FmtItems::new(self.exprs.iter(), "; "),
+            if let Some(tail) = &self.tail {
+                format!("{tail} ")
+            } else {
+                String::new()
+            },
         )
     }
 }

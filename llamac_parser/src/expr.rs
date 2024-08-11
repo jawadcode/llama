@@ -3,8 +3,8 @@ use std::fmt::{Debug, Display};
 use llamac_ast::{
     expr::{
         BinOp, BinaryOp, Block, Closure, ClosureParam, ClosureParams, Cond, CondArm, CondArms,
-        Expr, FunArgs, FunCall, IfThen, List, ListIndex, Literal, Match, MatchArm, MatchArms,
-        MatchPattern, MatchPatterns, SpanExpr, UnOp, UnaryOp,
+        Expr, FunArgs, FunCall, IfThen, List, Literal, Match, MatchArm, MatchArms, MatchPattern,
+        MatchPatterns, SpanExpr, UnOp, UnaryOp,
     },
     stmt::Stmt,
 };
@@ -13,78 +13,154 @@ use llamac_utils::{spanned, Ident, Spanned};
 
 use crate::{error::SyntaxError, lexer::TK, ParseResult, Parser};
 
-const BIN_OPS: [TK; 20] = [
-    TK::Add,
-    TK::Sub,
-    TK::Star,
-    TK::Div,
-    TK::FAdd,
-    TK::FSub,
-    TK::FMul,
-    TK::FDiv,
-    TK::Mod,
-    TK::And,
-    TK::Or,
-    TK::Xor,
-    TK::Lt,
-    TK::Leq,
-    TK::Gt,
-    TK::Geq,
-    TK::Eq,
-    TK::Neq,
-    TK::FnPipe,
-    TK::Concat,
-];
+const BIN_OPS: [TK; 22] = {
+    use TK::*;
+    [
+        Add, Sub, Mul, Div, FAdd, FSub, FMul, FDiv, Mod, Lt, Leq, Gt, Geq, Eq, Neq, Not, And, Or,
+        FnPipe, Pipe, Append, Concat,
+    ]
+};
 
-const EXPR_TERMINATORS: [TK; 12] = [
-    TK::RParen,
-    TK::RSquare,
-    TK::FatArrow,
-    TK::Semicolon,
-    TK::Comma,
-    TK::Pipe,
-    TK::Then,
-    TK::Else,
-    TK::End,
-    TK::Fun,
-    TK::Const,
-    TK::Eof,
-];
+const EXPR_TERMINATORS: [TK; 12] = {
+    use TK::*;
+    [
+        RParen, RSquare, FatArrow, Semicolon, Comma, Pipe, Then, Else, End, Fun, Const, Eof,
+    ]
+};
+
+const TERM_TOKENS: [TK; 9] = {
+    use TK::*;
+    [
+        UnitLit, True, False, IntLit, FloatLit, StringLit, Ident, LSquare, LParen,
+    ]
+};
+
+trait Operator {
+    fn prefix_bp(&self) -> u8;
+
+    fn infix_bp(&self) -> Option<(u8, u8)>;
+
+    fn postfix_bp(&self) -> Option<u8>;
+}
+
+impl Operator for TK {
+    /// Requires pre-check on the token type
+    fn prefix_bp(&self) -> u8 {
+        match self {
+            // Highest binding power
+            TK::Not | TK::Sub | TK::FSub => 17,
+            _ => unreachable!(),
+        }
+    }
+
+    fn infix_bp(&self) -> Option<(u8, u8)> {
+        Some(match self {
+            TK::Or => (1, 2),
+            TK::And => (3, 4),
+            TK::Lt | TK::Leq | TK::Gt | TK::Geq | TK::Eq | TK::Neq | TK::FnPipe => (5, 6),
+            // Left-associative as it is a Snoc and not a Cons operation
+            // I don't know if this logic is sound lol, we'll see
+            TK::Append => (7, 8),
+            TK::Add | TK::Sub | TK::FAdd | TK::FSub => (9, 10),
+            TK::Mul | TK::Div | TK::FMul | TK::FDiv | TK::Mod => (11, 12),
+            TK::Concat => (13, 14),
+            // TK::FunApp => (15, 16),
+            _ => return None,
+        })
+    }
+
+    fn postfix_bp(&self) -> Option<u8> {
+        None
+    }
+}
 
 impl Parser<'_> {
+    #[inline]
     pub(super) fn parse_expr(&mut self) -> ParseResult<SpanExpr> {
-        let mut lhs = self.parse_operand()?;
+        self.parse_expr_bp(0)
+    }
+
+    fn parse_expr_bp(&mut self, power: u8) -> ParseResult<SpanExpr> {
+        let mut lhs = self.parse_term()?;
 
         loop {
-            let peeked = self.peek();
-            let op: BinOp = if BIN_OPS.contains(&peeked) {
-                self.lexer.next().unwrap();
-                peeked.into()
-            } else if EXPR_TERMINATORS.contains(&peeked) {
+            let op = if self.at_any(EXPR_TERMINATORS) {
                 break;
+            } else if self.at_any(BIN_OPS) || self.at_any(TERM_TOKENS) {
+                self.peek()
             } else {
+                let token = self.next_token().unwrap();
                 return Err(SyntaxError::UnexpectedToken {
                     expected: "operator or expression terminator".to_string(),
-                    got: self.next_token()?,
+                    got: token,
                 });
             };
 
-            let rhs = self.parse_operand()?;
-            lhs = spanned! {
-                lhs.span + rhs.span,
-                Box::new(Expr::BinaryOp(BinaryOp {
-                    op,
-                    lhs,
-                    rhs,
-                }))
-            };
+            if let Some(left_bp) = op.postfix_bp() {
+                if left_bp < power {
+                    break;
+                }
+
+                let op = self.next_token().unwrap();
+
+                lhs = spanned! {
+                    lhs.span + op.span,
+                    Box::new(Expr::UnaryOp(UnaryOp {
+                        op: spanned!{op.span, op.kind.into()},
+                        value: lhs,
+                    }))
+                };
+                continue;
+            }
+
+            if let Some((left_bp, right_bp)) = op.infix_bp() {
+                if left_bp < power {
+                    break;
+                }
+                let op = self.next_token().unwrap();
+                let rhs = self.parse_expr_bp(right_bp)?;
+                lhs = spanned! {
+                    lhs.span + rhs.span,
+                    Box::new(Expr::BinaryOp(BinaryOp {
+                        op: spanned!{op.span, op.kind.into()},
+                        lhs,
+                        rhs,
+                    }))
+                };
+                continue;
+            }
+
+            let mut args = Vec::new();
+            while self.at_any(TERM_TOKENS) {
+                if 15 < power {
+                    break;
+                }
+
+                args.push(self.parse_expr_bp(16)?);
+            }
+            if !args.is_empty() {
+                let last_arg_span = args.last().unwrap().span;
+                lhs = spanned! {
+                    lhs.span + last_arg_span,
+                    Box::new(Expr::FunCall(FunCall {
+                        fun: lhs,
+                        args: spanned!{
+                            args.first().unwrap().span + last_arg_span,
+                            FunArgs(args)
+                        }
+                    }))
+                };
+                continue;
+            }
+
+            break;
         }
 
         Ok(lhs)
     }
 
-    fn parse_operand(&mut self) -> ParseResult<SpanExpr> {
-        let mut lhs = match self.peek() {
+    fn parse_term(&mut self) -> ParseResult<SpanExpr> {
+        Ok(match self.peek() {
             TK::UnitLit | TK::True | TK::False | TK::IntLit | TK::FloatLit | TK::StringLit => {
                 self.parse_lit()?.map(Expr::Literal)
             }
@@ -98,9 +174,7 @@ impl Parser<'_> {
             TK::Do => self.parse_block()?.map(Expr::Block),
 
             TK::LParen => self.parse_grouping()?,
-            op @ TK::Sub | op @ TK::FSub | op @ TK::Not => {
-                self.parse_prefix_op(op)?.map(Expr::UnaryOp)
-            }
+            TK::Sub | TK::FSub | TK::Not => self.parse_prefix_op()?.map(Expr::UnaryOp),
             _ => {
                 return Err(SyntaxError::UnexpectedToken {
                     expected: "expression".to_string(),
@@ -108,34 +182,7 @@ impl Parser<'_> {
                 })
             }
         }
-        .map(Box::new);
-
-        loop {
-            match self.peek() {
-                TK::LParen => lhs = self.parse_fun_call(lhs)?.map(Expr::FunCall).map(Box::new),
-                TK::LSquare => {
-                    lhs = self
-                        .parse_list_index(lhs)?
-                        .map(Expr::ListIndex)
-                        .map(Box::new)
-                }
-                _ => (),
-            }
-
-            let peeked = self.peek();
-            if BIN_OPS.contains(&peeked) || EXPR_TERMINATORS.contains(&peeked) {
-                break;
-            } else if [TK::LParen, TK::LSquare].contains(&peeked) {
-                continue;
-            } else {
-                return Err(SyntaxError::UnexpectedToken {
-                    expected: "operator or expression terminator".to_string(),
-                    got: self.next_token()?,
-                });
-            }
-        }
-
-        Ok(lhs)
+        .map(Box::new))
     }
 
     fn parse_lit(&mut self) -> ParseResult<Spanned<Literal>> {
@@ -273,7 +320,7 @@ impl Parser<'_> {
         while !self.at(TK::FatArrow) {
             let start = self.next_token()?;
             let pat = match start.kind {
-                TK::Star => spanned! {start.span, MatchPattern::Wildcard},
+                TK::Mul => spanned! {start.span, MatchPattern::Wildcard},
                 TK::Ident => {
                     let text = start.text(self.source);
                     spanned! {start.span, MatchPattern::NamedWildcard(Ident::new(text))}
@@ -382,36 +429,14 @@ impl Parser<'_> {
         Ok(spanned! {lparen.span + rparen.span, *expr.node})
     }
 
-    fn parse_prefix_op(&mut self, op: TK) -> ParseResult<Spanned<UnaryOp>> {
-        let op_token = self.lexer.next().unwrap();
-        let value = self.parse_expr()?;
-        Ok(spanned! {op_token.span + value.span, UnaryOp { op: op.into(), value }})
-    }
-
-    fn parse_fun_call(&mut self, lhs: SpanExpr) -> ParseResult<Spanned<FunCall>> {
-        let fun = lhs;
-        let lparen = self.lexer.next().unwrap();
-        let mut args = Vec::new();
-        while !self.at(TK::RParen) {
-            let arg = self.parse_expr()?;
-            args.push(arg);
-
-            if self.at(TK::Comma) {
-                self.lexer.next().unwrap();
-            } else {
-                break;
-            }
-        }
-        let rparen = self.expect(TK::RParen)?;
-        let args = spanned! {lparen.span + rparen.span, FunArgs(args)};
-        Ok(spanned! {fun.span + rparen.span, FunCall { fun, args }})
-    }
-
-    fn parse_list_index(&mut self, list: SpanExpr) -> ParseResult<Spanned<ListIndex>> {
-        let lsquare = self.lexer.next().unwrap();
-        let index = self.parse_expr()?;
-        let rsquare = self.lexer.next().unwrap();
-        Ok(spanned! {lsquare.span + rsquare.span, ListIndex { list, index }})
+    fn parse_prefix_op(&mut self) -> ParseResult<Spanned<UnaryOp>> {
+        let op = self.lexer.next().unwrap();
+        let right_bp = op.kind.prefix_bp();
+        let value = self.parse_expr_bp(right_bp)?;
+        Ok(spanned! {
+            op.span + value.span,
+            UnaryOp { op: spanned!{op.span, op.kind.into()}, value }
+        })
     }
 
     pub(super) fn parse_ident(&mut self) -> ParseResult<Spanned<Ident>> {
@@ -436,7 +461,7 @@ impl From<TK> for BinOp {
         match kind {
             TK::Add => Self::Add,
             TK::Sub => Self::Sub,
-            TK::Star => Self::Mul,
+            TK::Mul => Self::Mul,
             TK::Div => Self::Div,
             TK::FAdd => Self::FAdd,
             TK::FSub => Self::FSub,
@@ -445,7 +470,6 @@ impl From<TK> for BinOp {
             TK::Mod => Self::Mod,
             TK::And => Self::And,
             TK::Or => Self::Or,
-            TK::Xor => Self::Xor,
             TK::Lt => Self::Lt,
             TK::Leq => Self::Leq,
             TK::Gt => Self::Gt,
@@ -453,7 +477,7 @@ impl From<TK> for BinOp {
             TK::Eq => Self::Eq,
             TK::Neq => Self::Neq,
             TK::FnPipe => Self::Pipe,
-            TK::Concat => Self::Concat,
+            TK::Concat => Self::Cons,
             _ => unreachable!(),
         }
     }

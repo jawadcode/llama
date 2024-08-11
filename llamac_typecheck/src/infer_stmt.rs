@@ -82,6 +82,8 @@ impl Engine {
             self.extend(name.node.clone(), annot.node.clone(), *span);
         }
         let ret_ty: Spanned<Type> = ret_ty.map_ref(Type::from);
+        let body = self.infer_expr(body, ret_ty.clone())?;
+        self.exit_scope();
         if !top_level {
             let ty = Type::Fun {
                 params: Types(
@@ -101,8 +103,6 @@ impl Engine {
             };
             self.extend(name.node.clone(), ty, name.span);
         }
-        let body = self.infer_expr(body, ret_ty.clone())?;
-        self.exit_scope();
 
         Ok(TypedFunDef {
             name,
@@ -117,9 +117,10 @@ impl Engine {
         LetBind { name, annot, value }: LetBind,
         span: Span,
     ) -> InferResult<TypedSpanStmt> {
-        let annot = annot
-            .map(|annot| annot.map_ref(Type::from))
-            .unwrap_or_else(|| spanned! { span, self.fresh_var() });
+        let annot = match annot {
+            Some(annot) => annot.map_ref(Type::from),
+            None => spanned! { span, self.fresh_var() },
+        };
         let new_value = self.infer_expr(value, annot.clone())?;
         self.extend(name.node.clone(), annot.node.clone(), annot.span);
         Ok(spanned! {

@@ -166,3 +166,17 @@ macro_rules! parens_fmt {
         $fmt.write_char(')')
     }};
 }
+
+pub fn concat<I>(iterable: I) -> I::Item
+where
+    I: IntoIterator,
+    I::Item: Extend<<<I as IntoIterator>::Item as IntoIterator>::Item> + IntoIterator + Default,
+{
+    iterable
+        .into_iter()
+        .reduce(|mut a, b| {
+            a.extend(b);
+            a
+        })
+        .unwrap_or_default()
+}

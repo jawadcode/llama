@@ -27,7 +27,11 @@ impl<'source> Iterator for Lexer<'source> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.logos.next() {
+        match self
+            .logos
+            .next()
+            .map(|(res, range)| (res.unwrap_or(TK::Error), range))
+        {
             Some((kind, span)) => Some(Token {
                 kind,
                 span: span.into(),
@@ -44,7 +48,7 @@ impl<'source> Iterator for Lexer<'source> {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Token {
     pub kind: TK,
     pub span: Span,
@@ -64,7 +68,7 @@ impl Token {
 
 /// All of the token kinds
 #[rustfmt::skip]
-#[derive(Clone, Copy, Logos, PartialEq)]
+#[derive(Debug, Clone, Copy, Logos, PartialEq)]
 pub enum TK {
     /* KEYWORDS */
     #[token("fun")]   Fun,
@@ -91,15 +95,15 @@ pub enum TK {
 
     /* OPERATORS */
     // ARITHMETIC OPERATORS
-    #[token("+")] Add,
-    #[token("-")] Sub,
-    #[token("*")] Star,
-    #[token("/")] Div,
+    #[token("+")]  Add,
+    #[token("-")]  Sub,
+    #[token("*")]  Mul,
+    #[token("/")]  Div,
     #[token("+.")] FAdd,
     #[token("-.")] FSub,
     #[token("*.")] FMul,
     #[token("/.")] FDiv,
-    #[token("%")] Mod,
+    #[token("%")]  Mod,
     // COMPARISON OPERATORS
     #[token("<")]  Lt,
     #[token("<=")] Leq,
@@ -111,7 +115,6 @@ pub enum TK {
     #[token("!")]   Not,
     #[token("and")] And,
     #[token("or")]  Or,
-    #[token("xor")] Xor,
     
     /* BRACKETS */
     #[token("(")] LParen,
@@ -123,6 +126,7 @@ pub enum TK {
     #[token("=")]  Assign,
     #[token("|>")] FnPipe,
     #[token("|")]  Pipe,
+	#[token(":+")] Append,
     #[token("++")] Concat,
     #[token(",")]  Comma,
     #[token("->")] Arrow,
@@ -132,8 +136,7 @@ pub enum TK {
     Eof,
         
     #[token("(*", comment_lexer)]
-    #[regex(r"[ \t\r\n\f]+", logos::skip)]
-    #[error]
+    #[regex(r"[\r\n\t\f\v ]+", logos::skip)]
     Error,
 }
 
@@ -185,7 +188,7 @@ impl Display for TK {
             TK::FloatLit => "float literal",
             TK::Add => "'+'",
             TK::Sub => "'-'",
-            TK::Star => "'*'",
+            TK::Mul => "'*'",
             TK::Div => "'/'",
             TK::FAdd => "+.",
             TK::FSub => "-.",
@@ -201,7 +204,6 @@ impl Display for TK {
             TK::Not => "'!'",
             TK::And => "'and'",
             TK::Or => "'or'",
-            TK::Xor => "'xor'",
             TK::LParen => "''",
             TK::RParen => "')'",
             TK::LSquare => "'['",
@@ -209,6 +211,7 @@ impl Display for TK {
             TK::Assign => "'='",
             TK::FnPipe => "'|>'",
             TK::Pipe => "'|'",
+            TK::Append => ":+",
             TK::Concat => "'++'",
             TK::Comma => "','",
             TK::Arrow => "'->'",

@@ -1,7 +1,7 @@
 use llamac_ast::{
     expr::{
         BinOp, BinaryOp, Block, Closure, Cond, CondArm, Expr, FunArgs, FunCall, IfThen, List,
-        ListIndex, Literal, Match, MatchArm, MatchArms, MatchPattern, SpanExpr, UnOp, UnaryOp,
+        Literal, Match, MatchArm, MatchArms, MatchPattern, SpanExpr, UnOp, UnaryOp,
     },
     stmt::SpanStmt,
 };
@@ -9,8 +9,8 @@ use llamac_typed_ast::{
     expr::{
         InnerExpr, TypedBinaryOp, TypedBlock, TypedClosure, TypedClosureParam, TypedClosureParams,
         TypedCondArm, TypedCondArms, TypedCondExpr, TypedExpr, TypedFunArgs, TypedFunCall,
-        TypedIfThenExpr, TypedList, TypedListIndex, TypedMatch, TypedMatchArm, TypedMatchArms,
-        TypedSpanExpr, TypedUnaryOp,
+        TypedIfThenExpr, TypedList, TypedMatch, TypedMatchArm, TypedMatchArms, TypedSpanExpr,
+        TypedUnaryOp,
     },
     Type, Types,
 };
@@ -19,7 +19,7 @@ use llamac_utils::{spanned, Ident, Span, Spanned};
 use crate::{Constraint, Engine, InferError, InferResult};
 
 impl Engine {
-    /// Transform an expression into a typed expression, eagerly inferring the immediately obvious types, and generating a type variable and constraints for the rest
+    /// Transform an expression into a typed expression, eagerly inferring the immediately obvious types, and generating type variables and constraints for the rest
     pub(super) fn infer_expr(
         &mut self,
         expr: SpanExpr,
@@ -29,7 +29,6 @@ impl Engine {
             Expr::Ident(var) => self.infer_ident(var, expr.span, expected),
             Expr::Literal(lit) => self.infer_literal(lit, expr.span, expected),
             Expr::List(list) => self.infer_list(list, expr.span, expected),
-            Expr::ListIndex(list_index) => self.infer_list_index(list_index, expr.span, expected),
             Expr::UnaryOp(unary_op) => self.infer_unary_op(unary_op, expr.span, expected),
             Expr::BinaryOp(binary_op) => self.infer_binary_op(binary_op, expr.span, expected),
             Expr::FunCall(fun_call) => self.infer_fun_call(fun_call, expr.span, expected),
@@ -124,41 +123,13 @@ impl Engine {
         })
     }
 
-    fn infer_list_index(
-        &mut self,
-        ListIndex { list, index }: ListIndex,
-        span: Span,
-        expected: Spanned<Type>,
-    ) -> InferResult<TypedSpanExpr> {
-        let item_type = self.fresh_var();
-        let list_type = Type::List(Box::new(item_type.clone()));
-        let new_list = self.infer_expr(list, spanned! {expected.span, list_type})?;
-        let new_index = self.infer_expr(index, spanned! {expected.span, Type::Int})?;
-        self.constraints.push(Constraint::Equality {
-            expected: expected.node,
-            expected_span: expected.span,
-            got: item_type.clone(),
-            got_span: span,
-        });
-        Ok(spanned! {
-            span,
-            Box::new(TypedExpr(
-                InnerExpr::ListIndex(TypedListIndex {
-                    list: new_list,
-                    index: new_index
-                }),
-                item_type,
-            ))
-        })
-    }
-
     fn infer_unary_op(
         &mut self,
         UnaryOp { op, value }: UnaryOp,
         span: Span,
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
-        let ty = match op {
+        let ty = match op.node {
             UnOp::Not => Type::Bool,
             UnOp::INegate => Type::Int,
             UnOp::FNegate => Type::Float,
@@ -191,15 +162,15 @@ impl Engine {
     ) -> InferResult<TypedSpanExpr> {
         let lhs_span = lhs.span;
         let rhs_span = rhs.span;
-        // Ok so this isn't the ideal situation, but for operators that accept multiple types we can just make use of type variables and equality constraints and then check that the operands are of the correct type later down the line, like before emitting bytecode
-        let (lhs_ty, rhs_ty, out_ty) = match op {
+
+        let (lhs_ty, rhs_ty, out_ty) = match op.node {
             BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
                 (Type::Int, Type::Int, Type::Int)
             }
             BinOp::FAdd | BinOp::FSub | BinOp::FMul | BinOp::FDiv => {
                 (Type::Float, Type::Float, Type::Float)
             }
-            BinOp::And | BinOp::Or | BinOp::Xor => (Type::Bool, Type::Bool, Type::Bool),
+            BinOp::And | BinOp::Or => (Type::Bool, Type::Bool, Type::Bool),
             BinOp::Eq | BinOp::Neq | BinOp::Lt | BinOp::Leq | BinOp::Gt | BinOp::Geq => {
                 let (lhs_ty, rhs_ty) = (self.fresh_var(), self.fresh_var());
                 (lhs_ty, rhs_ty, Type::Bool)
@@ -215,14 +186,16 @@ impl Engine {
                     ret_ty,
                 )
             }
-            BinOp::Concat => {
+            BinOp::Cons => {
                 let (lhs_ty, rhs_ty) = (self.fresh_var(), self.fresh_var());
                 (lhs_ty.clone(), rhs_ty, lhs_ty)
             }
         };
+
         let new_lhs = self.infer_expr(lhs, spanned! {expected.span, lhs_ty.clone()})?;
         let new_rhs = self.infer_expr(rhs, spanned! {expected.span, rhs_ty.clone()})?;
-        self.constraints.push(match op {
+
+        self.constraints.push(match op.node {
             BinOp::Pipe => Constraint::Equality {
                 expected: lhs_ty,
                 expected_span: lhs_span,
@@ -240,12 +213,14 @@ impl Engine {
                 got_span: rhs_span,
             },
         });
+
         self.constraints.push(Constraint::Equality {
             expected: expected.node,
             expected_span: expected.span,
             got: out_ty.clone(),
             got_span: span,
         });
+
         Ok(spanned! {
             span,
             Box::new(TypedExpr(
@@ -268,11 +243,18 @@ impl Engine {
         let arg_tys = (0..args.node.0.len())
             .map(|_| self.fresh_var())
             .collect::<Vec<_>>();
-        let fun_ty = Type::Fun {
+        let fun_ty = self.fresh_var();
+        let new_fun = self.infer_expr(fun, spanned! {0..0, fun_ty.clone()})?;
+        let expected_fun_ty = Type::Fun {
             params: Types(arg_tys.clone()),
             ret_ty: Box::new(expected.node.clone()),
         };
-        let new_fun = self.infer_expr(fun, spanned! {expected.span, fun_ty})?;
+        self.constraints.push(Constraint::Equality {
+            expected: expected_fun_ty,
+            expected_span: expected.span,
+            got: fun_ty,
+            got_span: span,
+        });
         let new_args = args.map_res(|FunArgs(args)| -> InferResult<_> {
             Ok(TypedFunArgs(
                 args.into_iter()

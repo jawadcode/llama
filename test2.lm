@@ -1,0 +1,12 @@
+fun main() do
+    fun incr(x : Int) : Int = x + 1;
+    fun decr(x : Int) : Int = x - 1;
+    let id : Fun[Int] -> Int = compose incr decr;
+    print_int (id 123);
+end
+
+fun compose(
+    f : Fun[Int] -> Int,
+    g : Fun[Int] -> Int
+) : Fun[Int] -> Int =
+    fn x => f (g x)

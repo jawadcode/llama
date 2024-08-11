@@ -59,6 +59,11 @@ impl Parser<'_> {
             self.expect(TK::Colon)?;
             let annot = self.parse_type()?;
             params.push(spanned! {name.span + annot.span, FunParam { name, annot }});
+            if self.at(TK::Comma) {
+                self.lexer.next().unwrap();
+            } else {
+                break;
+            }
         }
         let rparen = self.expect(TK::RParen)?;
         let params = spanned! {lparen.span + rparen.span, FunParams(params)};
@@ -81,7 +86,7 @@ impl Parser<'_> {
                 Ok(spanned! {fun.span.start..body.span.end, FunDef { name, params, ret_ty, body }})
             }
             _ => Err(SyntaxError::UnexpectedToken {
-                expected: "'=' or block expression".to_string(),
+                expected: "'=' or 'do'".to_string(),
                 got: self.next_token()?,
             }),
         }
@@ -109,8 +114,7 @@ impl Parser<'_> {
         let lsquare = self.expect(TK::LSquare)?;
         let mut params = Vec::new();
         while !self.at(TK::RSquare) {
-            let param = self.parse_type()?;
-            params.push(param);
+            params.push(self.parse_type()?);
         }
         let rsquare = self.expect(TK::RSquare)?;
         let params = spanned! {lsquare.span + rsquare.span, Types(params)};

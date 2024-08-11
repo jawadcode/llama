@@ -1,12 +1,9 @@
 [package]
 name = "llamac_typecheck"
-authors = ["Jawad Ahmed <jawad.w.ahmed@gmail.com>"]
-version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 llamac_utils = { path = "../llamac_utils" }
 llamac_ast = { path = "../llamac_ast" }
 llamac_typed_ast = { path = "../llamac_typed_ast" }
+ariadne = "0.4"

@@ -41,7 +41,7 @@ impl<'source> Parser<'source> {
         }
 
         Ok(SourceFile {
-            path: path.canonicalize().unwrap(),
+            path: path.to_path_buf(),
             items,
         })
     }
@@ -61,6 +61,7 @@ impl<'source> Parser<'source> {
         self.peek() == expected
     }
 
+    #[inline(always)]
     fn at_any<const N: usize>(&mut self, expected: [TK; N]) -> bool {
         expected.contains(&self.peek())
     }
