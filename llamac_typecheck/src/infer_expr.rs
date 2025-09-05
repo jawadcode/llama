@@ -6,15 +6,15 @@ use llamac_ast::{
     stmt::SpanStmt,
 };
 use llamac_typed_ast::{
+    Type, Types,
     expr::{
         InnerExpr, TypedBinaryOp, TypedBlock, TypedClosure, TypedClosureParam, TypedClosureParams,
         TypedCondArm, TypedCondArms, TypedCondExpr, TypedExpr, TypedFunArgs, TypedFunCall,
         TypedIfThenExpr, TypedList, TypedMatch, TypedMatchArm, TypedMatchArms, TypedSpanExpr,
         TypedUnaryOp,
     },
-    Type, Types,
 };
-use llamac_utils::{spanned, Ident, Span, Spanned};
+use llamac_utils::{Ident, Span, Spanned, spanned};
 
 use crate::{Constraint, Engine, InferError, InferResult};
 

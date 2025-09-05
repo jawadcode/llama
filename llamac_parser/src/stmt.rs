@@ -3,9 +3,9 @@ use llamac_ast::{
     stmt::{Const, FunDef, FunParam, FunParams, LetBind, SpanStmt, Stmt, Type, Types},
 };
 
-use llamac_utils::{spanned, Span, Spanned};
+use llamac_utils::{Span, Spanned, spanned};
 
-use crate::{error::SyntaxError, lexer::TK, ParseResult, Parser};
+use crate::{ParseResult, Parser, error::SyntaxError, lexer::TK};
 
 impl Parser<'_> {
     pub(super) fn parse_stmt(&mut self) -> ParseResult<SpanStmt> {
@@ -20,7 +20,7 @@ impl Parser<'_> {
                 return Err(SyntaxError::UnexpectedToken {
                     expected: "statement".to_string(),
                     got: self.next_token()?,
-                })
+                });
             }
         })
     }

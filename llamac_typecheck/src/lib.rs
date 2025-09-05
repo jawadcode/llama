@@ -5,11 +5,11 @@ use std::{
 
 use error::InferError;
 use llamac_ast::{
-    stmt::{Const, FunDef},
     Item, SourceFile,
+    stmt::{Const, FunDef},
 };
 use llamac_typed_ast::{Type, TypedItem, TypedSourceFile, Types};
-use llamac_utils::{spanned, Ident, Span, Spanned};
+use llamac_utils::{Ident, Span, Spanned, spanned};
 
 mod error;
 mod infer_expr;

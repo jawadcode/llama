@@ -2,7 +2,7 @@ use llamac_ast::Item;
 
 use llamac_utils::Spanned;
 
-use crate::{error::SyntaxError, lexer::TK, ParseResult, Parser};
+use crate::{ParseResult, Parser, error::SyntaxError, lexer::TK};
 
 impl Iterator for Parser<'_> {
     type Item = ParseResult<Spanned<Item>>;
@@ -26,7 +26,7 @@ impl Parser<'_> {
                 return Err(SyntaxError::UnexpectedToken {
                     expected: "'fun' or 'const'".to_string(),
                     got: self.next_token()?,
-                })
+                });
             }
         })
     }

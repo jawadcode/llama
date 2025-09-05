@@ -1,9 +1,9 @@
 use std::fmt::{self, Display, Write};
 
 use llamac_ast::expr::{BinOp, Literal, MatchPatterns, UnOp};
-use llamac_utils::{parens_fmt, FmtItems, Ident, Spanned};
+use llamac_utils::{FmtItems, Ident, Spanned, parens_fmt};
 
-use crate::{stmt::TypedSpanStmt, Type};
+use crate::{Type, stmt::TypedSpanStmt};
 
 pub type TypedSpanExpr = Spanned<Box<TypedExpr>>;
 

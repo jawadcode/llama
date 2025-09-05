@@ -5,14 +5,14 @@ use llamac_ast::{
 };
 
 use llamac_typed_ast::{
+    Type, Types,
     expr::{TypedCondArm, TypedCondArms},
     stmt::{
         TypedCondStmt, TypedConst, TypedFunDef, TypedFunParam, TypedFunParams, TypedIfThenStmt,
         TypedLetBind, TypedSpanStmt, TypedStmt,
     },
-    Type, Types,
 };
-use llamac_utils::{spanned, Span, Spanned};
+use llamac_utils::{Span, Spanned, spanned};
 
 use crate::{Engine, InferResult};
 

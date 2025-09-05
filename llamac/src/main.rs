@@ -3,7 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf, process};
 use llamac_parser::Parser;
 use llamac_typecheck::Engine as InferEngine;
 use llamac_typed_ast::{Type, Types};
-use llamac_utils::{spanned, Ident};
+use llamac_utils::{Ident, spanned};
 
 fn main() {
     let filename = env::args().nth(1).unwrap();

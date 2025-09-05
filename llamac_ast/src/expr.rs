@@ -1,10 +1,10 @@
 use std::fmt::{self, Display, Write};
 
-use llamac_utils::{parens_fmt, FmtItems, Spanned};
+use llamac_utils::{FmtItems, Spanned, parens_fmt};
 
 use crate::{
-    stmt::{SpanStmt, Type},
     Ident,
+    stmt::{SpanStmt, Type},
 };
 
 pub type SpanExpr = Spanned<Box<Expr>>;

@@ -9,9 +9,9 @@ use llamac_ast::{
     stmt::Stmt,
 };
 
-use llamac_utils::{spanned, Ident, Spanned};
+use llamac_utils::{Ident, Spanned, spanned};
 
-use crate::{error::SyntaxError, lexer::TK, ParseResult, Parser};
+use crate::{ParseResult, Parser, error::SyntaxError, lexer::TK};
 
 const BIN_OPS: [TK; 22] = {
     use TK::*;
@@ -179,7 +179,7 @@ impl Parser<'_> {
                 return Err(SyntaxError::UnexpectedToken {
                     expected: "expression".to_string(),
                     got: self.next_token()?,
-                })
+                });
             }
         }
         .map(Box::new))
@@ -332,7 +332,7 @@ impl Parser<'_> {
                     return Err(SyntaxError::UnexpectedToken {
                         expected: "match pattern".to_string(),
                         got: start,
-                    })
+                    });
                 }
             };
             pattern.push(pat);

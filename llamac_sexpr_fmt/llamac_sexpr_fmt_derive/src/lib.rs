@@ -5,8 +5,8 @@ use itertools::Itertools;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
-    parse, spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Error, Fields,
-    FieldsNamed, FieldsUnnamed, Index, Lit, Meta, MetaNameValue, Path, Variant,
+    Attribute, Data, DataEnum, DataStruct, DeriveInput, Error, Fields, FieldsNamed, FieldsUnnamed,
+    Index, Lit, Meta, MetaNameValue, Path, Variant, parse, spanned::Spanned,
 };
 
 #[proc_macro_derive(SExpFmt, attributes(name, metadata, display, debug))]
@@ -62,7 +62,7 @@ fn impl_sexp_fmt(ast: DeriveInput) -> syn::Result<TokenStream> {
             return Err(Error::new(
                 u.union_token.span,
                 "You can't format a union silly",
-            ))
+            ));
         }
     };
 
@@ -325,7 +325,12 @@ fn get_fmt_type(attrs: &[Attribute], idents: Idents<'_>) -> syn::Result<FmtType>
         (None, Some(_), None) => Ok(FmtType::Display),
         (None, None, Some(_)) => Ok(FmtType::Debug),
         (None, None, None) => Ok(FmtType::Normal),
-        (Some(_), Some(span), _) | (Some(_), None, Some(span)) | (None, Some(_), Some(span)) => Err(Error::new(span, "A field may only be annotated with one of the following 3, or none of them: #[metadata], #[display], #[debug]")),
+        (Some(_), Some(span), _) | (Some(_), None, Some(span)) | (None, Some(_), Some(span)) => {
+            Err(Error::new(
+                span,
+                "A field may only be annotated with one of the following 3, or none of them: #[metadata], #[display], #[debug]",
+            ))
+        }
     }
 }
 

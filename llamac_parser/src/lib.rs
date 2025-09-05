@@ -1,7 +1,7 @@
 use std::{iter::Peekable, path::Path};
 
 use error::SyntaxError;
-use lexer::{Lexer, Token, TK};
+use lexer::{Lexer, TK, Token};
 use llamac_ast::SourceFile;
 
 pub mod error;

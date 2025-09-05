@@ -1,6 +1,6 @@
 [package]
 name = "llamac_sexpr_fmt"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 llamac_sexpr_fmt_derive = { path = "./llamac_sexpr_fmt_derive" }

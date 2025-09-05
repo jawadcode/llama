@@ -1,6 +1,6 @@
 [package]
 name = "llamac"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 llamac_utils = { path = "../llamac_utils" }

@@ -3,8 +3,8 @@ use std::fmt::{self, Display};
 use llamac_utils::{FmtItems, Ident, Spanned};
 
 use crate::{
-    expr::{TypedCondArms, TypedMatch, TypedSpanExpr},
     Type,
+    expr::{TypedCondArms, TypedMatch, TypedSpanExpr},
 };
 
 pub type TypedSpanStmt = Spanned<TypedStmt>;

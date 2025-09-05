@@ -6,7 +6,7 @@ use std::{
 use llamac_typed_ast::Type;
 use llamac_utils::{Ident, Span};
 
-use ariadne::{sources, Label, Report, ReportKind};
+use ariadne::{Label, Report, ReportKind, sources};
 
 #[derive(Debug, Clone)]
 pub enum InferError {

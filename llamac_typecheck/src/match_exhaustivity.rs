@@ -1,9 +1,9 @@
 use llamac_typed_ast::{
+    TypedItem, TypedSourceFile,
     expr::{InnerExpr, TypedBinaryOp, TypedList, TypedMatch, TypedSpanExpr, TypedUnaryOp},
     stmt::{TypedConst, TypedFunDef},
-    TypedItem, TypedSourceFile,
 };
-use llamac_utils::{concat, Span};
+use llamac_utils::{Span, concat};
 
 pub fn check_exhaustivity(TypedSourceFile { path: _, items }: &TypedSourceFile) -> Vec<Span> {
     for item in items {
