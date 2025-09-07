@@ -1,9 +1,9 @@
 [package]
 name = "llamac_ast"
-version = "0.1.0"
-authors = ["Jawad Ahmed <jawad.w.ahmed@gmail.com>"]
-license = "MIT OR Apache-2.0"
 edition = "2024"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
 
 [dependencies]
 llamac_utils = { path = "../llamac_utils" }

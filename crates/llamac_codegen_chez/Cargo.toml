@@ -1,5 +1,5 @@
 [package]
-name = "llamac_utils"
+name = "llamac_codegen_chez"
 edition = "2024"
 version.workspace = true
 authors.workspace = true

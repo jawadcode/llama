@@ -1,13 +1,14 @@
 [workspace]
 resolver = "2"
 members = [
-  "./crates/llamac",
-  "./crates/llamac_ast",
-  "./crates/llamac_parser",
-  "./crates/llamac_sexpr_fmt",
-  "./crates/llamac_typecheck",
-  "./crates/llamac_typed_ast",
-  "./crates/llamac_utils",
+  "crates/llamac",
+  "crates/llamac_ast",
+  "crates/llamac_parser",
+  "crates/llamac_sexpr_fmt",
+  "crates/llamac_typecheck",
+  "crates/llamac_typed_ast",
+  "crates/llamac_codegen_chez",
+  "crates/llamac_utils",
 ]
 metadata.crane.name = "llama"
 
