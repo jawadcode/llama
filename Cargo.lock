@@ -73,6 +73,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "llamac_codegen_chez"
+version = "0.1.0"
+
+[[package]]
 name = "llamac_parser"
 version = "0.1.0"
 dependencies = [
