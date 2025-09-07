@@ -56,7 +56,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "llamac"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "llamac_ast",
  "llamac_parser",
@@ -67,14 +67,14 @@ dependencies = [
 
 [[package]]
 name = "llamac_ast"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "llamac_utils",
 ]
 
 [[package]]
 name = "llamac_parser"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ariadne",
  "llamac_ast",
@@ -84,7 +84,7 @@ dependencies = [
 
 [[package]]
 name = "llamac_sexpr_fmt"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "llamac_sexpr_fmt_derive",
 ]
@@ -102,7 +102,7 @@ dependencies = [
 
 [[package]]
 name = "llamac_typecheck"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ariadne",
  "llamac_ast",
@@ -112,7 +112,7 @@ dependencies = [
 
 [[package]]
 name = "llamac_typed_ast"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "llamac_ast",
  "llamac_utils",
@@ -120,7 +120,7 @@ dependencies = [
 
 [[package]]
 name = "llamac_utils"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "logos"

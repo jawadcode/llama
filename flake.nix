@@ -8,9 +8,10 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    crane = {
-      url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
+    crane.url = "github:ipetkov/crane";
+    advisory-db = {
+      url = "github:rustsec/advisory-db";
+      flake = false;
     };
   };
 
@@ -20,6 +21,7 @@
     flake-utils,
     rust-overlay,
     crane,
+    advisory-db,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
@@ -55,13 +57,14 @@
         fileset = lib.fileset.unions [
           ./Cargo.toml
           ./Cargo.lock
-          ./llamac_ast
-          ./llamac_parser
-          ./llamac_sexpr_fmt
-          ./llamac_typecheck
-          ./llamac_typed_ast
-          ./llamac_utils
-          ./llamac
+
+          ./crates/llamac_ast
+          ./crates/llamac_parser
+          ./crates/llamac_sexpr_fmt
+          ./crates/llamac_typecheck
+          ./crates/llamac_typed_ast
+          ./crates/llamac_utils
+          ./crates/llamac
         ];
       };
 
@@ -69,24 +72,40 @@
         // {
           pname = "llamac";
           cargoExtraArgs = "-p llamac";
+          buildInputs = [pkgs.chez];
           src = llamacFileset;
         });
     in {
       checks = {
         inherit llamac;
 
-        llama-workspace-clippy = craneLib.cargoClippy (commonArgs
+        llama-workspace-clippy = craneLib.cargoClippy (
+          commonArgs
           // {
             inherit cargoArtifacts;
             cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+          }
+        );
+
+        llama-workspace-doc = craneLib.cargoDoc (commonArgs
+          // {
+            inherit cargoArtifacts;
+            env.RUSTDOCFLAGS = "--deny warnings";
           });
 
         llama-workspace-fmt = craneLib.cargoFmt {inherit src;};
+
+        llama-workspace-toml-fmt = craneLib.taploFmt {
+          src = pkgs.lib.sources.sourceFilesBySuffices src [".toml"];
+        };
+
+        llama-workspace-audit = craneLib.cargoAudit {inherit src advisory-db;};
 
         llama-workspace-deny = craneLib.cargoDeny {inherit src;};
       };
 
       packages = {
+        inherit llamac;
         default = llamac;
       };
 
@@ -96,9 +115,12 @@
         };
       };
 
-      devShells.default = craneLib.devShell {
-        checks = self.checks.${system};
-        packages = [pkgs.taplo];
-      };
+      devShells.default =
+        craneLib.devShell.override {
+          mkShell = pkgs.mkShell.override {stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.stdenv;};
+        } {
+          checks = self.checks.${system};
+          packages = [pkgs.taplo];
+        };
     });
 }

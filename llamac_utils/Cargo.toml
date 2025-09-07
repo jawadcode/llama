@@ -1,5 +1,0 @@
-[package]
-name = "llamac_utils"
-edition = "2024"
-
-[dependencies]

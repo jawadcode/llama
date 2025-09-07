@@ -1,0 +1,8 @@
+[package]
+name = "llamac_utils"
+version = "0.1.0"
+authors = ["Jawad Ahmed <jawad.w.ahmed@gmail.com>"]
+license = "MIT OR Apache-2.0"
+edition = "2024"
+
+[dependencies]

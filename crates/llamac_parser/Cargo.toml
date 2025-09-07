@@ -1,9 +1,12 @@
 [package]
-name = "llamac_typecheck"
+name = "llamac_parser"
+version = "0.1.0"
+authors = ["Jawad Ahmed <jawad.w.ahmed@gmail.com>"]
+license = "MIT OR Apache-2.0"
 edition = "2024"
 
 [dependencies]
 llamac_utils = { path = "../llamac_utils" }
 llamac_ast = { path = "../llamac_ast" }
-llamac_typed_ast = { path = "../llamac_typed_ast" }
+logos = "0.14"
 ariadne = "0.4"

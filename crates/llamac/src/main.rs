@@ -1,4 +1,9 @@
-use std::{collections::HashMap, env, fs, path::PathBuf, process};
+use std::{
+    collections::HashMap,
+    env, fs,
+    path::PathBuf,
+    process::{self, Command, Stdio},
+};
 
 use llamac_parser::Parser;
 use llamac_typecheck::Engine as InferEngine;
@@ -6,6 +11,7 @@ use llamac_typed_ast::{Type, Types};
 use llamac_utils::{Ident, spanned};
 
 fn main() {
+    let x = 123;
     let filename = env::args().nth(1).unwrap();
     let file = fs::read_to_string(&filename).unwrap();
     let source_file = Parser::new(&file)
