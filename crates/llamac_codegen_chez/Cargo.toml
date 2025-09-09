@@ -6,3 +6,6 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+llamac_ast = { path = "../llamac_ast" }
+llamac_typed_ast = { path = "../llamac_typed_ast" }
+llamac_utils = { path = "../llamac_utils" }

@@ -86,7 +86,7 @@ impl Display for UnaryOp {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnOp {
     Not,
     INegate,
@@ -137,7 +137,7 @@ impl Display for FunArgs {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOp {
     // Arithmetic Operators
     Add,
