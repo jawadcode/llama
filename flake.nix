@@ -59,6 +59,7 @@
           ./Cargo.lock
 
           ./crates/llamac_ast
+          ./crates/llamac_codegen_chez
           ./crates/llamac_parser
           ./crates/llamac_sexpr_fmt
           ./crates/llamac_typecheck
