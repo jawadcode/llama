@@ -1,5 +1,16 @@
-use std::{collections::HashMap, env, fs, path::PathBuf, process};
+use std::{
+    collections::HashMap,
+    env,
+    fs::{
+        self,
+        // File
+    },
+    // io::BufWriter,
+    path::PathBuf,
+    process,
+};
 
+use llamac_codegen_chez::compile_file;
 use llamac_parser::Parser;
 use llamac_typecheck::Engine as InferEngine;
 use llamac_typed_ast::{Type, Types};
@@ -15,7 +26,7 @@ fn main() {
             process::exit(1)
         })
         .unwrap();
-    println!("Pretty Printed AST:\n{}", &source_file);
+    // println!("Pretty Printed AST:\n{}\n", &source_file);
     let init_ctx = [
         (
             Ident::new("print"),
@@ -58,10 +69,14 @@ fn main() {
         })
         .unwrap();
 
-    println!("\nTyped AST (Unsolved):\n{}", typed_source_file.clone());
+    // println!("\nTyped AST (Unsolved):\n{}", typed_source_file.clone());
     // engine.dump_constraints();
     engine.solve_constraints().unwrap();
     // engine.dump_subst();
     let typed_source_file = engine.subst_source_file(typed_source_file);
-    println!("\nTyped AST (Solved):\n{typed_source_file}");
+
+    // let out_file = File::create("out.scm").unwrap();
+    // let mut writer = BufWriter::new(out_file);
+    compile_file(&mut std::io::stdout(), typed_source_file).unwrap();
+    // println!("\nTyped AST (Solved):\n{typed_source_file}");
 }

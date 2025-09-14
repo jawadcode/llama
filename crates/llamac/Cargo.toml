@@ -11,3 +11,4 @@ llamac_ast = { path = "../llamac_ast" }
 llamac_parser = { path = "../llamac_parser" }
 llamac_typed_ast = { path = "../llamac_typed_ast" }
 llamac_typecheck = { path = "../llamac_typecheck" }
+llamac_codegen_chez = { path = "../llamac_codegen_chez" }

@@ -1,39 +1,42 @@
-use std::fmt::{self, Display, Write};
+use std::io::Write;
 
-use llamac_ast::expr::{BinOp, Literal, UnOp};
+use llamac_ast::expr::{BinOp, Literal, MatchPattern, UnOp};
 use llamac_typed_ast::{
     TypedItem, TypedSourceFile,
     expr::{
-        InnerExpr, TypedBinaryOp, TypedClosure, TypedFunCall, TypedIfThenExpr, TypedList,
-        TypedSpanExpr, TypedUnaryOp,
+        InnerExpr, TypedBinaryOp, TypedBlock, TypedClosure, TypedCondArm, TypedCondArms,
+        TypedCondExpr, TypedFunCall, TypedIfThenExpr, TypedList, TypedMatch, TypedMatchArm,
+        TypedMatchArms, TypedSpanExpr, TypedUnaryOp,
     },
-    stmt::{TypedConst, TypedFunDef},
+    stmt::{TypedCondStmt, TypedConst, TypedFunDef, TypedIfThenStmt, TypedLetBind, TypedStmt},
 };
-use llamac_utils::FmtItems;
+use llamac_utils::{FmtItems, Spanned};
 
-const SCM_PRELUDE: &str = r#"
+const SCM_PRELUDE: &[u8] = br#"#| === BEGIN PRELUDE === |#
 (import (rnrs))
-
-;; I'm lazy
 (define (noteq a b) (not (equal? a b)))
 (define (fnpipe x f) (f x))
+(define print display)
+(define print_int display)
+(define print_float display)
+#| === END PRELUDE === |#
+
 "#;
 
-pub fn compile_file(f: &mut fmt::Formatter, tast: TypedSourceFile) -> fmt::Result {
-    f.write_str(SCM_PRELUDE)?;
+pub fn compile_file<W: Write>(writer: &mut W, tast: TypedSourceFile) -> std::io::Result<()> {
+    writer.write_all(SCM_PRELUDE)?;
 
     for item in tast.items {
-        f.write_str("(define ")?;
+        writer.write_all(b"(define ")?;
         match item.node {
             TypedItem::Const(TypedConst {
                 name,
                 annot: _,
                 value,
             }) => {
-                name.node.fmt(f)?;
-
-                compile_expr(f, value)?;
-                f.write_char(')')?;
+                write!(writer, "{name}")?;
+                writer.write_all(b" ")?;
+                compile_expr(writer, &value.node.0)?;
             }
             TypedItem::FunDef(TypedFunDef {
                 name,
@@ -41,109 +44,286 @@ pub fn compile_file(f: &mut fmt::Formatter, tast: TypedSourceFile) -> fmt::Resul
                 ret_ty: _,
                 body,
             }) => {
-                f.write_char('(')?;
-                name.node.fmt(f)?;
-                f.write_char(' ')?;
-                FmtItems::new(
-                    params.node.0.into_iter().map(|param| param.node.name.node),
-                    " ",
-                )
-                .fmt(f)?;
-                f.write_str(") ")?;
-                compile_expr(f, body)?;
+                writer.write_all(b"(")?;
+                write!(writer, "{name}")?;
+                if params.node.0.len() > 0 {
+                    writer.write_all(b" ")?;
+                }
+                write!(
+                    writer,
+                    "{}",
+                    FmtItems::new(
+                        params.node.0.into_iter().map(|param| param.node.name.node),
+                        " ",
+                    )
+                )?;
+                writer.write_all(b") ")?;
+                compile_expr(writer, &body.node.0)?;
             }
         }
-        f.write_char(')')?;
+        writer.write_all(b")\n")?;
     }
 
-    Ok(())
+    writer.write_all(b"(main)\n")
 }
 
-fn compile_expr(f: &mut fmt::Formatter, expr: TypedSpanExpr) -> fmt::Result {
-    match (*expr.node).0 {
-        InnerExpr::Ident(ident) => ident.fmt(f),
-        InnerExpr::Literal(literal) => match literal {
-            Literal::Unit => f.write_str("'unit"),
-            Literal::String(s) => write!(f, "\"{s}\""),
-            Literal::Int(num) => num.fmt(f),
-            Literal::Float(float) => float.fmt(f), // Let's assume the float format is same-ish
-            Literal::Bool(b) => f.write_str(if b { "#t" } else { "#f" }),
-        },
+fn compile_expr<W: Write>(writer: &mut W, expr: &InnerExpr) -> std::io::Result<()> {
+    match expr {
+        InnerExpr::Ident(ident) => write!(writer, "{ident}"),
+        InnerExpr::Literal(literal) => compile_literal(writer, &literal),
         InnerExpr::List(TypedList(list)) => {
-            f.write_str("(list ")?;
+            writer.write_all(b"(list ")?;
             for item in list {
-                compile_expr(f, item)?;
-                f.write_char(' ')?;
+                compile_expr(writer, &item.node.0)?;
+                writer.write_all(b" ")?;
             }
-            f.write_char(')')
+            writer.write_all(b")")
         }
         InnerExpr::UnaryOp(TypedUnaryOp { op, value }) => {
-            f.write_char('(')?;
-            f.write_str(match op.node {
-                UnOp::Not => "not ",
-                UnOp::INegate | UnOp::FNegate => "- ",
+            writer.write_all(b"(")?;
+            writer.write_all(match op.node {
+                UnOp::Not => b"not ",
+                UnOp::INegate | UnOp::FNegate => b"- ",
             })?;
-            compile_expr(f, value)?;
-            f.write_char(')')
+            compile_expr(writer, &value.node.0)?;
+            writer.write_all(b")")
         }
         InnerExpr::BinaryOp(TypedBinaryOp { op, lhs, rhs }) => {
-            f.write_char('(')?;
-            f.write_str(match op.node {
-                BinOp::Add | BinOp::FAdd => "+ ",
-                BinOp::Sub | BinOp::FSub => "- ",
-                BinOp::Mul | BinOp::FMul => "* ",
-                BinOp::Div | BinOp::FDiv => "/ ",
-                BinOp::Mod => "mod ",
-                BinOp::And => "and ",
-                BinOp::Or => "or ",
-                BinOp::Lt => "< ",
-                BinOp::Leq => "<= ",
-                BinOp::Gt => "> ",
-                BinOp::Geq => ">= ",
-                BinOp::Eq => "= ",
-                BinOp::Neq => "noteq ",
-                BinOp::Pipe => "fnpipe ",
-                BinOp::Cons => "cons ",
+            writer.write_all(b"(")?;
+            writer.write_all(match op.node {
+                BinOp::Add | BinOp::FAdd => b"+",
+                BinOp::Sub | BinOp::FSub => b"-",
+                BinOp::Mul | BinOp::FMul => b"*",
+                BinOp::Div | BinOp::FDiv => b"/",
+                BinOp::Mod => b"mod",
+                BinOp::And => b"and",
+                BinOp::Or => b"or",
+                BinOp::Lt => b"<",
+                BinOp::Leq => b"<=",
+                BinOp::Gt => b">",
+                BinOp::Geq => b">=",
+                BinOp::Eq => b"=",
+                BinOp::Neq => b"noteq",
+                BinOp::Pipe => b"fnpipe",
+                BinOp::Cons => b"cons",
             })?;
-            f.write_char(' ')?;
-            compile_expr(f, lhs)?;
-            f.write_char(' ')?;
-            compile_expr(f, rhs)?;
-            f.write_char(')')
+            writer.write_all(b" ")?;
+            compile_expr(writer, &lhs.node.0)?;
+            writer.write_all(b" ")?;
+            compile_expr(writer, &rhs.node.0)?;
+            writer.write_all(b")")
         }
         InnerExpr::FunCall(TypedFunCall { fun, args }) => {
-            f.write_char('(')?;
-            compile_expr(f, fun)?;
-            f.write_char(' ')?;
-            for arg in args.node.0 {
-                compile_expr(f, arg)?;
-                f.write_char(' ')?;
+            writer.write_all(b"(")?;
+            compile_expr(writer, &fun.node.0)?;
+            writer.write_all(b" ")?;
+            match &args.node.0[..] {
+                [] => (),
+                [sole] => compile_expr(writer, &sole.node.0)?,
+                [first, rest @ ..] => {
+                    compile_expr(writer, &first.node.0)?;
+                    for arg in rest {
+                        writer.write_all(b" ")?;
+                        compile_expr(writer, &arg.node.0)?;
+                    }
+                }
             }
-            f.write_char(')')
+            writer.write_all(b")")
         }
         InnerExpr::Closure(TypedClosure {
             params,
             ret_ty: _,
             body,
         }) => {
-            f.write_str("(lambda (")?;
-            FmtItems::new(params.node.0.into_iter().map(|param| param.node.name), ' ').fmt(f)?;
-            f.write_str(") ")?;
-            compile_expr(f, body)?;
-            f.write_char(')')
+            writer.write_all(b"(lambda (")?;
+            write!(
+                writer,
+                "{}",
+                FmtItems::new(params.node.0.iter().map(|param| &param.node.name), ' ')
+            )?;
+            writer.write_all(b") ")?;
+            compile_expr(writer, &body.node.0)?;
+            writer.write_all(b")")
         }
         InnerExpr::IfThen(TypedIfThenExpr { cond, then, r#else }) => {
-            f.write_str("(if ")?;
-            compile_expr(f, cond)?;
-            f.write_char(' ')?;
-            compile_expr(f, then)?;
-            f.write_char(' ')?;
-            compile_expr(f, r#else)?;
-            f.write_char(')')
+            compile_if_then(writer, cond, then, Some(r#else))
         }
-        InnerExpr::Cond(_typed_cond_expr) => todo!(),
-        InnerExpr::Match(_typed_match) => todo!(),
-        InnerExpr::Block(_typed_block) => todo!(),
-        InnerExpr::Stmt(_spanned) => todo!(),
+        InnerExpr::Cond(TypedCondExpr { arms, r#else }) => compile_cond(writer, arms, Some(r#else)),
+        InnerExpr::Match(TypedMatch { examinee, arms }) => compile_match(writer, examinee, arms),
+        InnerExpr::Block(TypedBlock { exprs, tail }) => {
+            writer.write_all(b"(begin ")?;
+            let mut num_bindings = 0;
+            let mut exprs = exprs.iter();
+            compile_block_expr(writer, &mut num_bindings, exprs.next().unwrap())?;
+            for expr in exprs {
+                writer.write_all(b" ")?;
+                compile_block_expr(writer, &mut num_bindings, expr)?;
+            }
+            if let Some(tail) = tail {
+                writer.write_all(b" ")?;
+                compile_expr(writer, &tail.node.0)?;
+            }
+            writer.write_all(&b")".repeat(num_bindings + 1))
+        }
+        InnerExpr::Stmt(stmt) => compile_stmt(writer, &stmt.node),
+    }
+}
+
+fn compile_block_expr<W: Write>(
+    writer: &mut W,
+    num_bindings: &mut usize,
+    expr: &TypedSpanExpr,
+) -> std::io::Result<()> {
+    match &expr.node.0 {
+        InnerExpr::Stmt(Spanned {
+            span: _,
+            node:
+                TypedStmt::LetBind(TypedLetBind {
+                    name,
+                    annot: _,
+                    value,
+                })
+                | TypedStmt::Const(TypedConst {
+                    name,
+                    annot: _,
+                    value,
+                }),
+        }) => {
+            *num_bindings += 1;
+            writer.write_all(b"(let ((")?;
+            write!(writer, "{name}")?;
+            writer.write_all(b" ")?;
+            compile_expr(writer, &value.node.0)?;
+            writer.write_all(b"))")
+        }
+        InnerExpr::Stmt(Spanned {
+            span: _,
+            node:
+                TypedStmt::FunDef(TypedFunDef {
+                    name,
+                    params,
+                    ret_ty: _,
+                    body,
+                }),
+        }) => {
+            *num_bindings += 1;
+            writer.write_all(b"(let ((")?;
+            write!(writer, "{name}")?;
+            writer.write_all(b" (lambda (")?;
+            write!(
+                writer,
+                "{}",
+                FmtItems::new(params.node.0.iter().map(|param| &param.node.name.node), " ",)
+            )?;
+            writer.write_all(b") ")?;
+            compile_expr(writer, &body.node.0)?;
+            writer.write_all(b")))")
+        }
+        _ => compile_expr(writer, &expr.node.0),
+    }
+}
+
+fn compile_stmt<W: Write>(writer: &mut W, stmt: &TypedStmt) -> std::io::Result<()> {
+    match stmt {
+        TypedStmt::Const(_) | TypedStmt::FunDef(_) | TypedStmt::LetBind(_) => unreachable!(),
+        TypedStmt::IfThen(TypedIfThenStmt { cond, then, r#else }) => {
+            compile_if_then(writer, &cond, &then, r#else.as_ref())
+        }
+        TypedStmt::Cond(TypedCondStmt { arms, r#else }) => {
+            compile_cond(writer, &arms, r#else.as_ref())
+        }
+        TypedStmt::Match(TypedMatch { examinee, arms }) => compile_match(writer, &examinee, &arms),
+    }
+}
+
+fn compile_if_then<W: Write>(
+    writer: &mut W,
+    cond: &TypedSpanExpr,
+    then: &TypedSpanExpr,
+    r#else: Option<&TypedSpanExpr>,
+) -> std::io::Result<()> {
+    writer.write_all(b"(if ")?;
+    compile_expr(writer, &cond.node.0)?;
+    writer.write_all(b" ")?;
+    compile_expr(writer, &then.node.0)?;
+    if let Some(r#else) = r#else {
+        writer.write_all(b" ")?;
+        compile_expr(writer, &r#else.node.0)?;
+    }
+    writer.write_all(b")")
+}
+
+fn compile_cond<W: Write>(
+    writer: &mut W,
+    arms: &Spanned<TypedCondArms>,
+    r#else: Option<&TypedSpanExpr>,
+) -> std::io::Result<()> {
+    writer.write_all(b"(cond ")?;
+    for TypedCondArm { cond, target } in arms.node.0.iter().map(|arm| &arm.node) {
+        writer.write_all(b"[")?;
+        compile_expr(writer, &cond.node.0)?;
+        writer.write_all(b" ")?;
+        compile_expr(writer, &target.node.0)?;
+        writer.write_all(b"]")?;
+    }
+    if let Some(r#else) = r#else {
+        writer.write_all(b"[else ")?;
+        compile_expr(writer, &r#else.node.0)?;
+        writer.write_all(b"]")?;
+    }
+    writer.write_all(b")")
+}
+
+fn compile_match<W: Write>(
+    writer: &mut W,
+    examinee: &TypedSpanExpr,
+    arms: &Spanned<TypedMatchArms>,
+) -> std::io::Result<()> {
+    // TODO: Instead of using `(case ...)`, implement using `cond`.
+    // Will require more work but `(case ...)` seems to be quite restricted.
+    // Ideally we want to have stuff like ranges and flexible list patterns.
+    writer.write_all(b"(case ")?;
+    compile_expr(writer, &examinee.node.0)?;
+    writer.write_all(b" ")?;
+    for TypedMatchArm { patterns, target } in arms.node.0.iter().map(|arm| &arm.node) {
+        writer.write_all(b"(")?;
+        match &patterns.node.0[..] {
+            [] => unreachable!(),
+            [sole] => compile_pattern(writer, sole)?,
+            [first, rest @ ..] => {
+                writer.write_all(b"(")?;
+                compile_pattern(writer, first)?;
+                for pattern in rest {
+                    writer.write_all(b" ")?;
+                    compile_pattern(writer, pattern)?;
+                }
+                writer.write_all(b")")?
+            }
+        }
+        writer.write_all(b" ")?;
+        compile_expr(writer, &target.node.0)?;
+        writer.write_all(b")")?;
+    }
+    writer.write_all(b")")
+}
+
+fn compile_literal<W: Write>(writer: &mut W, literal: &Literal) -> std::io::Result<()> {
+    match literal {
+        Literal::Unit => writer.write_all(b"'unit"),
+        Literal::String(s) => write!(writer, "\"{s}\""),
+        Literal::Int(num) => write!(writer, "{num}"),
+        Literal::Float(float) => write!(writer, "{float}"), // Let's assume the float format is same-ish
+        Literal::Bool(b) => writer.write_all(if *b { b"#t" } else { b"#f" }),
+    }
+}
+
+fn compile_pattern<W: Write>(
+    writer: &mut W,
+    pattern: &Spanned<MatchPattern>,
+) -> std::io::Result<()> {
+    match &pattern.node {
+        MatchPattern::Wildcard => todo!("do proper match compilation"),
+        MatchPattern::NamedWildcard(_ident) => todo!("do proper match compilation"),
+        MatchPattern::Literal(literal) => compile_literal(writer, literal),
     }
 }
