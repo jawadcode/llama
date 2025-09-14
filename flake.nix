@@ -59,6 +59,7 @@
           ./Cargo.lock
 
           ./crates/llamac_ast
+          ./crates/llamac_codegen_r6rs
           ./crates/llamac_parser
           ./crates/llamac_sexpr_fmt
           ./crates/llamac_typecheck
@@ -72,7 +73,7 @@
         // {
           pname = "llamac";
           cargoExtraArgs = "-p llamac";
-          buildInputs = [pkgs.chez];
+          buildInputs = [pkgs.chez pkgs.racket];
           src = llamacFileset;
         });
     in {

@@ -21,10 +21,10 @@ const BIN_OPS: [TK; 22] = {
     ]
 };
 
-const EXPR_TERMINATORS: [TK; 12] = {
+const EXPR_TERMINATORS: [TK; 11] = {
     use TK::*;
     [
-        RParen, RSquare, FatArrow, Semicolon, Comma, Pipe, Then, Else, End, Fun, Const, Eof,
+        RParen, RSquare, Semicolon, Comma, Pipe, Then, Else, End, Fun, Const, Eof,
     ]
 };
 
@@ -195,7 +195,7 @@ impl Parser<'_> {
             TK::IntLit => Literal::Int(text.parse::<i64>().unwrap()),
             TK::FloatLit => Literal::Float(text.parse::<f64>().unwrap()),
             TK::StringLit => Literal::String(text[1..(text.len() - 1)].to_string()),
-            _ => unreachable!(),
+            lit => panic!("{lit}"),
         };
         Ok(spanned! {token.span, lit})
     }
@@ -275,7 +275,7 @@ impl Parser<'_> {
             let pipe = self.expect(TK::Pipe)?;
             if self.at(TK::Else) {
                 self.lexer.next().unwrap();
-                self.expect(TK::Arrow)?;
+                self.expect(TK::FatArrow)?;
                 let target = self.parse_expr()?;
                 r#else = Some(target);
             } else {
@@ -318,12 +318,15 @@ impl Parser<'_> {
     fn parse_match_patterns(&mut self) -> ParseResult<Spanned<MatchPatterns>> {
         let mut pattern = Vec::new();
         while !self.at(TK::FatArrow) {
-            let start = self.next_token()?;
-            let pat = match start.kind {
-                TK::Mul => spanned! {start.span, MatchPattern::Wildcard},
+            let pat = match self.peek() {
+                TK::Mul => {
+                    let tok = self.next_token().unwrap();
+                    spanned! {tok.span, MatchPattern::Wildcard}
+                }
                 TK::Ident => {
-                    let text = start.text(self.source);
-                    spanned! {start.span, MatchPattern::NamedWildcard(Ident::new(text))}
+                    let tok = self.next_token().unwrap();
+                    let text = tok.text(self.source);
+                    spanned! {tok.span, MatchPattern::NamedWildcard(Ident::new(text))}
                 }
                 TK::UnitLit | TK::True | TK::False | TK::IntLit | TK::FloatLit | TK::StringLit => {
                     self.parse_lit()?.map(MatchPattern::Literal)
@@ -331,7 +334,7 @@ impl Parser<'_> {
                 _ => {
                     return Err(SyntaxError::UnexpectedToken {
                         expected: "match pattern".to_string(),
-                        got: start,
+                        got: self.next_token()?,
                     });
                 }
             };

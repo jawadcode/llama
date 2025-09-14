@@ -59,7 +59,7 @@ name = "llamac"
 version = "0.1.0"
 dependencies = [
  "llamac_ast",
- "llamac_codegen_chez",
+ "llamac_codegen_r6rs",
  "llamac_parser",
  "llamac_typecheck",
  "llamac_typed_ast",
@@ -74,7 +74,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "llamac_codegen_chez"
+name = "llamac_codegen_r6rs"
 version = "0.1.0"
 dependencies = [
  "llamac_ast",
