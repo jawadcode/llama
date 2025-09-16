@@ -1,8 +1,9 @@
+mod cli;
+
 use std::{
     collections::HashMap,
-    env::{self, consts::EXE_SUFFIX, current_dir},
-    fs::{self, File, create_dir},
-    // io::BufWriter,
+    env,
+    fs::{self, File},
     path::PathBuf,
     process::{self, Command},
 };
@@ -13,13 +14,15 @@ use llamac_typecheck::Engine as InferEngine;
 use llamac_typed_ast::{Type, Types};
 use llamac_utils::{Ident, spanned};
 
+use crate::cli::{OutLoc, handle_error, parse_args};
+
 fn main() {
-    let file_path = PathBuf::from(env::args().nth(1).unwrap());
-    let file = fs::read_to_string(&file_path).unwrap();
+    let config = parse_args(env::args()).map_err(handle_error).unwrap();
+    let file = fs::read_to_string(&config.input).unwrap();
     let source_file = Parser::new(&file)
-        .parse_file(&PathBuf::from(&file_path))
+        .parse_file(&PathBuf::from(&config.input))
         .map_err(|err| {
-            err.report(file_path.to_string_lossy().into_owned(), &file);
+            err.report(config.input.to_string_lossy().into_owned(), &file);
             process::exit(1)
         })
         .unwrap();
@@ -62,7 +65,7 @@ fn main() {
         .infer_source_file(source_file)
         .and_then(|typed_source_file| engine.solve_constraints().map(|()| (typed_source_file)))
         .map_err(|err| {
-            err.report(file_path.to_string_lossy().into_owned(), &file);
+            err.report(config.input.to_string_lossy().into_owned(), &file);
             process::exit(1)
         })
         .unwrap();
@@ -70,26 +73,40 @@ fn main() {
     engine.solve_constraints().unwrap();
     let typed_source_file = engine.subst_source_file(typed_source_file);
 
-    let out_dir = current_dir().unwrap().join("build");
-    let source_stem = file_path.file_stem().unwrap().to_string_lossy();
-    let out_file_path = out_dir
-        .clone()
-        .join((source_stem.clone() + ".scm").as_ref());
-    let exe_file_path = out_dir.clone().join((source_stem + EXE_SUFFIX).as_ref());
-
-    if !out_dir.exists() {
-        create_dir(out_dir).unwrap();
+    if config.only_scheme {
+        let out_file_path = match config.output {
+            OutLoc::File(file) => file,
+            OutLoc::Directory(dir) => dir
+                .join(config.input.file_stem().unwrap())
+                .with_extension("scm"),
+        };
+        let mut out_file = File::create(out_file_path).unwrap();
+        compile_file(&mut out_file, typed_source_file).unwrap();
+    } else {
+        let (scm_file_path, exe_file_path) = match config.output {
+            OutLoc::File(file) => (file.clone().with_extension("scm"), file),
+            OutLoc::Directory(dir) => {
+                let artifact = dir.join(config.input.file_stem().unwrap());
+                (
+                    artifact.with_extension("scm"),
+                    artifact.with_extension(env::consts::EXE_EXTENSION),
+                )
+            }
+        };
+        let mut out_file = File::create(&scm_file_path).unwrap();
+        compile_file(&mut out_file, typed_source_file).unwrap();
+        Command::new("raco")
+            .args([
+                "exe",
+                "--cs",
+                "--embed-dlls",
+                "-o",
+                exe_file_path.to_string_lossy().as_ref(),
+                scm_file_path.to_string_lossy().as_ref(),
+            ])
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap();
     }
-    let mut out_file = File::create(&out_file_path).unwrap();
-    compile_file(&mut out_file, typed_source_file).unwrap();
-    Command::new("raco")
-        .args([
-            "exe",
-            "--cs",
-            "-o",
-            exe_file_path.to_string_lossy().as_ref(),
-            out_file_path.to_string_lossy().as_ref(),
-        ])
-        .spawn()
-        .unwrap();
 }
