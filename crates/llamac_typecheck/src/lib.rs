@@ -149,9 +149,9 @@ impl Engine {
         TypedSourceFile { path, items }
     }
 
-    pub fn is_solved(&self, TypedSourceFile { path, items }: TypedSourceFile) -> InferResult<()> {
-        unimplemented!("Not necessary with the current type system afaik")
-    }
+    // pub fn is_solved(&self, TypedSourceFile { path, items }: TypedSourceFile) -> InferResult<()> {
+    //     unimplemented!("Not necessary with the current type system afaik")
+    // }
 
     pub fn dump_constraints(&self) {
         for Constraint::Equality {

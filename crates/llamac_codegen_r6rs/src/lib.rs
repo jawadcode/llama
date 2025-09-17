@@ -48,7 +48,7 @@ pub fn compile_file<W: Write>(writer: &mut W, tast: TypedSourceFile) -> std::io:
             }) => {
                 writer.write_all(b"(")?;
                 write!(writer, "{name}")?;
-                if params.node.0.len() > 0 {
+                if !params.node.0.is_empty() {
                     writer.write_all(b" ")?;
                 }
                 write!(
@@ -72,7 +72,7 @@ pub fn compile_file<W: Write>(writer: &mut W, tast: TypedSourceFile) -> std::io:
 fn compile_expr<W: Write>(writer: &mut W, expr: &InnerExpr) -> std::io::Result<()> {
     match expr {
         InnerExpr::Ident(ident) => write!(writer, "{ident}"),
-        InnerExpr::Literal(literal) => compile_literal(writer, &literal),
+        InnerExpr::Literal(literal) => compile_literal(writer, literal),
         InnerExpr::List(TypedList(list)) => {
             writer.write_all(b"(list")?;
             for item in list {
@@ -234,12 +234,12 @@ fn compile_stmt<W: Write>(writer: &mut W, stmt: &TypedStmt) -> std::io::Result<(
     match stmt {
         TypedStmt::Const(_) | TypedStmt::FunDef(_) | TypedStmt::LetBind(_) => unreachable!(),
         TypedStmt::IfThen(TypedIfThenStmt { cond, then, r#else }) => {
-            compile_if_then(writer, &cond, &then, r#else.as_ref())
+            compile_if_then(writer, cond, then, r#else.as_ref())
         }
         TypedStmt::Cond(TypedCondStmt { arms, r#else }) => {
-            compile_cond(writer, &arms, r#else.as_ref())
+            compile_cond(writer, arms, r#else.as_ref())
         }
-        TypedStmt::Match(TypedMatch { examinee, arms }) => compile_match(writer, &examinee, &arms),
+        TypedStmt::Match(TypedMatch { examinee, arms }) => compile_match(writer, examinee, arms),
     }
 }
 

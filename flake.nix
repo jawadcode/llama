@@ -73,7 +73,7 @@
         // {
           pname = "llamac";
           cargoExtraArgs = "-p llamac";
-          buildInputs = [pkgs.chez pkgs.racket];
+          buildInputs = [pkgs.racket];
           src = llamacFileset;
         });
     in {

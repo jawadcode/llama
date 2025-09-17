@@ -4,6 +4,7 @@ edition = "2024"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 llamac_utils = { path = "../llamac_utils" }

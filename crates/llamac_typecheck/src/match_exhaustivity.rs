@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use llamac_typed_ast::{
     TypedItem, TypedSourceFile,
     expr::{InnerExpr, TypedBinaryOp, TypedList, TypedMatch, TypedSpanExpr, TypedUnaryOp},

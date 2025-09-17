@@ -1,11 +1,13 @@
 use std::{convert::Infallible, env, path::PathBuf, process};
 
+#[derive(Debug, Clone)]
 pub struct Config {
     pub input: PathBuf,
     pub output: OutLoc,
     pub only_scheme: bool,
 }
 
+#[derive(Debug, Clone)]
 pub enum OutLoc {
     Directory(PathBuf),
     File(PathBuf),

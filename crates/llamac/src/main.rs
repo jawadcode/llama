@@ -93,6 +93,10 @@ fn main() {
                 )
             }
         };
+        let builddir = scm_file_path.parent().unwrap();
+        if !builddir.exists() {
+            fs::create_dir_all(builddir).unwrap();
+        }
         let mut out_file = File::create(&scm_file_path).unwrap();
         compile_file(&mut out_file, typed_source_file).unwrap();
         Command::new("raco")
