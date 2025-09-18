@@ -63,7 +63,7 @@ fn main() {
     let mut engine = InferEngine::new(init_ctx.into_iter().collect::<HashMap<_, _>>());
     let typed_source_file = engine
         .infer_source_file(source_file)
-        .and_then(|typed_source_file| engine.solve_constraints().map(|()| (typed_source_file)))
+        .and_then(|typed_source_file| engine.solve_constraints().map(|()| typed_source_file))
         .map_err(|err| {
             err.report(config.input.to_string_lossy().into_owned(), &file);
             process::exit(1)
