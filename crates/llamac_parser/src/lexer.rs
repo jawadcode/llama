@@ -115,6 +115,9 @@ pub enum TK {
     #[token("!")]   Not,
     #[token("and")] And,
     #[token("or")]  Or,
+    // OTHER
+    #[token("ref")] Ref,
+    #[token("^")]   Caret,
     
     /* BRACKETS */
     #[token("(")] LParen,
@@ -123,7 +126,8 @@ pub enum TK {
     #[token("]")] RSquare,
 
     /* MISC */
-    #[token("=")]  Assign,
+    #[token("=")]  Bind,
+    #[token(":=")] Walrus,
     #[token("|>")] FnPipe,
     #[token("|")]  Pipe,
 	#[token(":+")] Append,
@@ -204,11 +208,14 @@ impl Display for TK {
             TK::Not => "'!'",
             TK::And => "'and'",
             TK::Or => "'or'",
+            TK::Ref => "'ref'",
+            TK::Caret => "'^'",
             TK::LParen => "''",
             TK::RParen => "')'",
             TK::LSquare => "'['",
             TK::RSquare => "']'",
-            TK::Assign => "'='",
+            TK::Bind => "'='",
+            TK::Walrus => "':='",
             TK::FnPipe => "'|>'",
             TK::Pipe => "'|'",
             TK::Append => ":+",

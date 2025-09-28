@@ -16,11 +16,17 @@ const SCM_PRELUDE: &[u8] = br#"#!r6rs
 
 #| === BEGIN PRELUDE === |#
 (import (rnrs))
+
+(define (ref x) x)
 (define (noteq a b) (not (equal? a b)))
 (define (fnpipe x f) (f x))
+(define (snoc l a) `(,l . ,a))
+(define (concat a b) (append b a))
+
 (define print display)
 (define print_int display)
 (define print_float display)
+(define (print_list_ints l) (display (reverse l)))
 #| === END PRELUDE === |#
 
 "#;
@@ -84,6 +90,7 @@ fn compile_expr<W: Write>(writer: &mut W, expr: &InnerExpr) -> std::io::Result<(
         InnerExpr::UnaryOp(TypedUnaryOp { op, value }) => {
             writer.write_all(b"(")?;
             writer.write_all(match op.node {
+                UnOp::Ref => b"ref ",
                 UnOp::Not => b"not ",
                 UnOp::INegate | UnOp::FNegate => b"- ",
             })?;
@@ -107,7 +114,9 @@ fn compile_expr<W: Write>(writer: &mut W, expr: &InnerExpr) -> std::io::Result<(
                 BinOp::Eq => b"=",
                 BinOp::Neq => b"noteq",
                 BinOp::Pipe => b"fnpipe",
-                BinOp::Cons => b"cons",
+                BinOp::Append => b"snoc",
+                BinOp::Concat => b"concat",
+                BinOp::Assign => b"set!",
             })?;
             writer.write_all(b" ")?;
             compile_expr(writer, &lhs.node.0)?;

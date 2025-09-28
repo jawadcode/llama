@@ -30,7 +30,7 @@ impl Parser<'_> {
         let name = self.parse_ident()?;
         self.expect(TK::Colon)?;
         let annot = self.parse_type()?;
-        self.expect(TK::Assign)?;
+        self.expect(TK::Bind)?;
         let value = self.parse_expr()?;
         Ok(spanned! {r#const.span + value.span, Const { name, annot, value }})
     }
@@ -44,7 +44,7 @@ impl Parser<'_> {
         } else {
             None
         };
-        self.expect(TK::Assign)?;
+        self.expect(TK::Bind)?;
         let value = self.parse_expr()?;
         Ok(spanned! {r#let.span + value.span, LetBind { name, annot, value }})
     }
@@ -74,7 +74,7 @@ impl Parser<'_> {
             spanned! {rparen.span.end..rparen.span.end, Type::Unit}
         };
         match self.peek() {
-            TK::Assign => {
+            TK::Bind => {
                 self.lexer.next().unwrap();
                 let body = self.parse_expr()?;
                 Ok(spanned! {fun.span.start..body.span.end, FunDef { name, params, ret_ty, body }})
@@ -102,7 +102,7 @@ impl Parser<'_> {
             "Int" => Ok(spanned! {name.span, Type::Int}),
             "Float" => Ok(spanned! {name.span, Type::Float}),
             "Fun" => self.parse_type_fun(name.span),
-            "List" => self.parse_type_list(name.span),
+            cons @ "List" | cons @ "Ref" => self.parse_type_unary(cons, name.span),
             _ => Err(SyntaxError::UnexpectedToken {
                 expected: "type".to_string(),
                 got: name,
@@ -123,10 +123,17 @@ impl Parser<'_> {
         Ok(spanned! {name + rsquare.span, Type::Fun { params, ret_ty }})
     }
 
-    fn parse_type_list(&mut self, name: Span) -> ParseResult<Spanned<Type>> {
+    fn parse_type_unary(&mut self, cons: &str, name: Span) -> ParseResult<Spanned<Type>> {
         self.expect(TK::LSquare)?;
         let item = self.parse_type()?.map(Box::new);
         let rsquare = self.expect(TK::RSquare)?;
-        Ok(spanned! {name + rsquare.span, Type::List(item)})
+        Ok(spanned! {
+            name + rsquare.span,
+            match cons {
+                "List" => Type::List(item),
+                "Ref" => Type::Ref(item),
+                _ => unreachable!(),
+            }
+        })
     }
 }

@@ -88,6 +88,7 @@ impl Display for UnaryOp {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnOp {
+    Ref,
     Not,
     INegate,
     FNegate,
@@ -96,9 +97,10 @@ pub enum UnOp {
 impl Display for UnOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UnOp::Not => f.write_char('!'),
-            UnOp::INegate => f.write_char('-'),
-            UnOp::FNegate => f.write_str("-."),
+            Self::Ref => f.write_str("ref"),
+            Self::Not => f.write_char('!'),
+            Self::INegate => f.write_char('-'),
+            Self::FNegate => f.write_str("-."),
         }
     }
 }
@@ -160,8 +162,10 @@ pub enum BinOp {
     Eq,
     Neq,
     // Misc
+    Assign,
+    Append,
+    Concat,
     Pipe,
-    Cons,
 }
 
 impl Display for BinOp {
@@ -184,8 +188,10 @@ impl Display for BinOp {
             BinOp::Geq => f.write_str(">="),
             BinOp::Eq => f.write_str("=="),
             BinOp::Neq => f.write_str("!="),
+            BinOp::Append => f.write_str(":+"),
+            BinOp::Concat => f.write_str("++"),
             BinOp::Pipe => f.write_str("|>"),
-            BinOp::Cons => f.write_str(":"),
+            BinOp::Assign => f.write_str(":="),
         }
     }
 }

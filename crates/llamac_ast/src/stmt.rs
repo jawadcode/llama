@@ -120,6 +120,7 @@ pub enum Type {
         params: Spanned<Types>,
         ret_ty: Spanned<Box<Self>>,
     },
+    Ref(Spanned<Box<Type>>),
     List(Spanned<Box<Type>>),
     // Primitives
     Unit,
@@ -132,12 +133,9 @@ pub enum Type {
 impl Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Type::Fun { params, ret_ty } => {
-                write!(f, "Fun[{params}] -> {ret_ty}")
-            }
-            Type::List(ty) => {
-                write!(f, "List[{ty}]")
-            }
+            Type::Fun { params, ret_ty } => write!(f, "Fun[{params}] -> {ret_ty}"),
+            Type::Ref(ty) => write!(f, "Ref[{ty}]"),
+            Type::List(ty) => write!(f, "List[{ty}]"),
             Type::Unit => f.write_str("Unit"),
             Type::Bool => f.write_str("Bool"),
             Type::Int => f.write_str("Int"),

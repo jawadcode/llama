@@ -58,7 +58,8 @@ pub enum Type {
         params: Types,
         ret_ty: Box<Self>,
     },
-    List(Box<Type>),
+    Ref(Box<Self>),
+    List(Box<Self>),
     // Primitives
     Unit,
     Bool,
@@ -71,12 +72,9 @@ impl Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Var(id) => write!(f, "T{id}"),
-            Type::Fun { params, ret_ty } => {
-                write!(f, "Fun{params} -> {ret_ty}")
-            }
-            Type::List(ty) => {
-                write!(f, "List[{ty}]")
-            }
+            Type::Fun { params, ret_ty } => write!(f, "Fun{params} -> {ret_ty}"),
+            Type::Ref(ty) => write!(f, "Ref[{ty}]"),
+            Type::List(ty) => write!(f, "List[{ty}]"),
             Type::Unit => f.write_str("Unit"),
             Type::Bool => f.write_str("Bool"),
             Type::Int => f.write_str("Int"),
@@ -115,6 +113,7 @@ impl From<&llamac_ast::stmt::Type> for Type {
                     ret_ty: Box::new(ret_ty.node.as_ref().into()),
                 }
             }
+            SType::Ref(ty) => Type::Ref(Box::new(ty.node.as_ref().into())),
             SType::List(ty) => Type::List(Box::new(ty.node.as_ref().into())),
             SType::Unit => Type::Unit,
             SType::Bool => Type::Bool,

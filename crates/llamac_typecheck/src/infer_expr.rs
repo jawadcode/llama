@@ -129,12 +129,13 @@ impl Engine {
         span: Span,
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
+        let value_type = self.fresh_var();
         let ty = match op.node {
+            UnOp::Ref => Type::Ref(Box::new(value_type.clone())),
             UnOp::Not => Type::Bool,
             UnOp::INegate => Type::Int,
             UnOp::FNegate => Type::Float,
         };
-        let value_type = self.fresh_var();
         let new_value = self.infer_expr(value, spanned! {expected.span, value_type})?;
         self.constraints.push(Constraint::Equality {
             expected: expected.node,
@@ -163,7 +164,7 @@ impl Engine {
         let lhs_span = lhs.span;
         let rhs_span = rhs.span;
 
-        let (lhs_ty, rhs_ty, out_ty) = match op.node {
+        let (lhs_type, rhs_type, out_type) = match op.node {
             BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
                 (Type::Int, Type::Int, Type::Int)
             }
@@ -172,52 +173,79 @@ impl Engine {
             }
             BinOp::And | BinOp::Or => (Type::Bool, Type::Bool, Type::Bool),
             BinOp::Eq | BinOp::Neq | BinOp::Lt | BinOp::Leq | BinOp::Gt | BinOp::Geq => {
-                let (lhs_ty, rhs_ty) = (self.fresh_var(), self.fresh_var());
-                (lhs_ty, rhs_ty, Type::Bool)
+                let (lhs_type, rhs_type) = (self.fresh_var(), self.fresh_var());
+                self.constraints.push(Constraint::Equality {
+                    expected: lhs_type.clone(),
+                    expected_span: lhs_span,
+                    got: rhs_type.clone(),
+                    got_span: rhs_span,
+                });
+                (lhs_type, rhs_type, Type::Bool)
             }
             BinOp::Pipe => {
                 let (arg, r#in, ret_ty) = (self.fresh_var(), self.fresh_var(), self.fresh_var());
-                (
+                let (lhs_type, rhs_type, out_type) = (
                     arg,
                     Type::Fun {
-                        params: Types(vec![r#in]),
+                        params: Types(vec![r#in.clone()]),
                         ret_ty: Box::new(ret_ty.clone()),
                     },
                     ret_ty,
+                );
+                self.constraints.push(Constraint::Equality {
+                    expected: lhs_type.clone(),
+                    expected_span: lhs_span,
+                    got: r#in,
+                    got_span: rhs_span,
+                });
+                (lhs_type, rhs_type, out_type)
+            }
+            BinOp::Concat => {
+                let (lhs_item_type, rhs_item_type) = (self.fresh_var(), self.fresh_var());
+                self.constraints.push(Constraint::Equality {
+                    expected: lhs_item_type.clone(),
+                    expected_span: lhs_span,
+                    got: rhs_item_type.clone(),
+                    got_span: rhs_span,
+                });
+                let lhs_type = Type::List(Box::new(lhs_item_type));
+
+                (
+                    lhs_type.clone(),
+                    Type::List(Box::new(rhs_item_type)),
+                    lhs_type,
                 )
             }
-            BinOp::Cons => {
-                let (lhs_ty, rhs_ty) = (self.fresh_var(), self.fresh_var());
-                (lhs_ty.clone(), rhs_ty, lhs_ty)
+            BinOp::Append => {
+                let (lhs_item_type, rhs_type) = (self.fresh_var(), self.fresh_var());
+                self.constraints.push(Constraint::Equality {
+                    expected: lhs_item_type.clone(),
+                    expected_span: lhs_span,
+                    got: rhs_type.clone(),
+                    got_span: rhs_span,
+                });
+                let lhs_type = Type::List(Box::new(lhs_item_type));
+                (lhs_type.clone(), rhs_type, lhs_type)
+            }
+            BinOp::Assign => {
+                let (lval_inner_type, rval_type) = (self.fresh_var(), self.fresh_var());
+                self.constraints.push(Constraint::Equality {
+                    expected: lval_inner_type.clone(),
+                    expected_span: lhs_span,
+                    got: rval_type.clone(),
+                    got_span: rhs_span,
+                });
+                (Type::Ref(Box::new(lval_inner_type)), rval_type, Type::Unit)
             }
         };
 
-        let new_lhs = self.infer_expr(lhs, spanned! {expected.span, lhs_ty.clone()})?;
-        let new_rhs = self.infer_expr(rhs, spanned! {expected.span, rhs_ty.clone()})?;
-
-        self.constraints.push(match op.node {
-            BinOp::Pipe => Constraint::Equality {
-                expected: lhs_ty,
-                expected_span: lhs_span,
-                got: if let Type::Fun { params, .. } = rhs_ty {
-                    params.0[0].clone()
-                } else {
-                    unreachable!()
-                },
-                got_span: rhs_span,
-            },
-            _ => Constraint::Equality {
-                expected: lhs_ty,
-                expected_span: lhs_span,
-                got: rhs_ty,
-                got_span: rhs_span,
-            },
-        });
+        let new_lhs = self.infer_expr(lhs, spanned! {op.span, lhs_type.clone()})?;
+        let new_rhs = self.infer_expr(rhs, spanned! {op.span, rhs_type.clone()})?;
 
         self.constraints.push(Constraint::Equality {
             expected: expected.node,
             expected_span: expected.span,
-            got: out_ty.clone(),
+            got: out_type.clone(),
             got_span: span,
         });
 
@@ -229,7 +257,7 @@ impl Engine {
                     lhs: new_lhs,
                     rhs: new_rhs,
                 }),
-                out_ty,
+                out_type,
             ))
         })
     }

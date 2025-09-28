@@ -27,6 +27,8 @@ fn main() {
         })
         .unwrap();
 
+    println!("AST:\n{source_file}");
+
     let init_ctx = [
         (
             Ident::new("print"),

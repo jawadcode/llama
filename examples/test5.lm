@@ -1,0 +1,5 @@
+fun main() do
+	let id = fn (x: Unit) => x;
+	let x = ref 123;
+	id (id x := x + 321)
+end

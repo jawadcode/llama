@@ -13,11 +13,11 @@ use llamac_utils::{Ident, Spanned, spanned};
 
 use crate::{ParseResult, Parser, error::SyntaxError, lexer::TK};
 
-const BIN_OPS: [TK; 22] = {
+const BIN_OPS: [TK; 23] = {
     use TK::*;
     [
         Add, Sub, Mul, Div, FAdd, FSub, FMul, FDiv, Mod, Lt, Leq, Gt, Geq, Eq, Neq, Not, And, Or,
-        FnPipe, Pipe, Append, Concat,
+        FnPipe, Pipe, Append, Concat, Walrus,
     ]
 };
 
@@ -44,33 +44,40 @@ trait Operator {
 }
 
 impl Operator for TK {
-    /// Requires pre-check on the token type
+    /// # Pre-conditions:
+    ///
+    /// * `self` should be one of `Ref`, `Not`, `Sub`, `FSub` (panic)
     fn prefix_bp(&self) -> u8 {
         match self {
+            TK::Ref => 17,
             // Highest binding power
-            TK::Not | TK::Sub | TK::FSub => 17,
+            TK::Not | TK::Sub | TK::FSub => 18,
             _ => unreachable!(),
         }
     }
 
     fn infix_bp(&self) -> Option<(u8, u8)> {
         Some(match self {
-            TK::Or => (1, 2),
-            TK::And => (3, 4),
-            TK::Lt | TK::Leq | TK::Gt | TK::Geq | TK::Eq | TK::Neq | TK::FnPipe => (5, 6),
-            // Left-associative as it is a Snoc and not a Cons operation
+            TK::Walrus => (1, 2),
+            TK::Or => (3, 4),
+            TK::And => (4, 5),
+            TK::Lt | TK::Leq | TK::Gt | TK::Geq | TK::Eq | TK::Neq | TK::FnPipe => (6, 7),
+            // Left-associative as it is a snoc and not a cons operation
             // I don't know if this logic is sound lol, we'll see
-            TK::Append => (7, 8),
-            TK::Add | TK::Sub | TK::FAdd | TK::FSub => (9, 10),
-            TK::Mul | TK::Div | TK::FMul | TK::FDiv | TK::Mod => (11, 12),
-            TK::Concat => (13, 14),
-            // TK::FunApp => (15, 16),
+            TK::Append => (9, 8),
+            TK::Add | TK::Sub | TK::FAdd | TK::FSub => (10, 11),
+            TK::Mul | TK::Div | TK::FMul | TK::FDiv | TK::Mod => (12, 13),
+            TK::Concat => (14, 15),
+            // TK::FunApp => (16, 17),
             _ => return None,
         })
     }
 
     fn postfix_bp(&self) -> Option<u8> {
-        None
+        match self {
+            TK::Caret => Some(),
+            _ => None,
+        }
     }
 }
 
@@ -174,7 +181,7 @@ impl Parser<'_> {
             TK::Do => self.parse_block()?.map(Expr::Block),
 
             TK::LParen => self.parse_grouping()?,
-            TK::Sub | TK::FSub | TK::Not => self.parse_prefix_op()?.map(Expr::UnaryOp),
+            TK::Ref | TK::Sub | TK::FSub | TK::Not => self.parse_prefix_op()?.map(Expr::UnaryOp),
             _ => {
                 return Err(SyntaxError::UnexpectedToken {
                     expected: "expression".to_string(),
@@ -451,6 +458,7 @@ impl Parser<'_> {
 impl From<TK> for UnOp {
     fn from(kind: TK) -> Self {
         match kind {
+            TK::Ref => Self::Ref,
             TK::Not => Self::Not,
             TK::Sub => Self::INegate,
             TK::FSub => Self::FNegate,
@@ -480,7 +488,9 @@ impl From<TK> for BinOp {
             TK::Eq => Self::Eq,
             TK::Neq => Self::Neq,
             TK::FnPipe => Self::Pipe,
-            TK::Concat => Self::Cons,
+            TK::Concat => Self::Concat,
+            TK::Append => Self::Append,
+            TK::Walrus => Self::Assign,
             _ => unreachable!(),
         }
     }

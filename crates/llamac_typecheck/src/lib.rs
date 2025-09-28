@@ -182,14 +182,13 @@ impl Engine {
         got: &Type,
         got_span: Span,
     ) -> InferResult<()> {
-        // this would look so much nicer in ocaml or haskell
-        use Type as T;
+        use Type::*;
         match (expected, got) {
-            (T::Var(x_id), y) if self.get_subst(x_id) != &T::Var(*x_id) => {
+            (Var(x_id), y) if self.get_subst(x_id) != &Var(*x_id) => {
                 let x = self.get_subst_cloned(x_id);
                 self.unify(&x, expected_span, y, got_span)
             }
-            (T::Var(x_id), y) => {
+            (Var(x_id), y) => {
                 if self.occurs_in(*x_id, y) {
                     Err(InferError::InfiniteType {
                         id: *x_id,
@@ -202,11 +201,11 @@ impl Engine {
                     Ok(())
                 }
             }
-            (x, T::Var(y_id)) if self.get_subst(y_id) != &T::Var(*y_id) => {
+            (x, Var(y_id)) if self.get_subst(y_id) != &Var(*y_id) => {
                 let y = self.get_subst_cloned(y_id);
                 self.unify(x, expected_span, &y, got_span)
             }
-            (x, T::Var(y_id)) => {
+            (x, Var(y_id)) => {
                 if self.occurs_in(*y_id, x) {
                     Err(InferError::InfiniteType {
                         id: *y_id,
@@ -220,11 +219,11 @@ impl Engine {
                 }
             }
             (
-                x @ T::Fun {
+                x @ Fun {
                     params: x_params,
                     ret_ty: x_ret_ty,
                 },
-                y @ T::Fun {
+                y @ Fun {
                     params: y_params,
                     ret_ty: y_ret_ty,
                 },
@@ -244,12 +243,8 @@ impl Engine {
                 }
                 Ok(())
             }
-            (T::List(x), T::List(y)) => self.unify(x, expected_span, y, got_span),
-            (T::Unit, T::Unit)
-            | (T::Bool, T::Bool)
-            | (T::Int, T::Int)
-            | (T::Float, T::Float)
-            | (T::String, T::String) => Ok(()),
+            (List(x), List(y)) | (Ref(x), Ref(y)) => self.unify(x, expected_span, y, got_span),
+            (Unit, Unit) | (Bool, Bool) | (Int, Int) | (Float, Float) | (String, String) => Ok(()),
             (x, y) => Err(InferError::TypeMismatch {
                 expected: x.clone(),
                 got_span,
@@ -269,6 +264,7 @@ impl Engine {
             Type::Fun { params, ret_ty } => {
                 params.0.iter().any(|ty| self.occurs_in(index, ty)) || self.occurs_in(index, ret_ty)
             }
+            Type::Ref(ty) => self.occurs_in(index, ty),
             Type::List(ty) => self.occurs_in(index, ty),
             Type::Unit | Type::Bool | Type::Int | Type::Float | Type::String => false,
         }
