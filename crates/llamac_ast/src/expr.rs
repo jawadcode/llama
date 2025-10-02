@@ -89,6 +89,7 @@ impl Display for UnaryOp {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnOp {
     Ref,
+    Deref,
     Not,
     INegate,
     FNegate,
@@ -98,6 +99,7 @@ impl Display for UnOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Ref => f.write_str("ref"),
+            Self::Deref => f.write_str("^"),
             Self::Not => f.write_char('!'),
             Self::INegate => f.write_char('-'),
             Self::FNegate => f.write_str("-."),

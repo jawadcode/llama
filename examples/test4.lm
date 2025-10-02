@@ -1,5 +1,5 @@
 fun main() do
 	let x = ref 1;
-	x := x + 1;
-	print_int x;
+	x := x^ + 1;
+	print_int x^;
 end

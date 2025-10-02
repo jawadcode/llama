@@ -21,6 +21,11 @@ const BIN_OPS: [TK; 23] = {
     ]
 };
 
+const POSTFIX_OPS: [TK; 1] = {
+    use TK::*;
+    [Caret]
+};
+
 const EXPR_TERMINATORS: [TK; 11] = {
     use TK::*;
     [
@@ -75,7 +80,7 @@ impl Operator for TK {
 
     fn postfix_bp(&self) -> Option<u8> {
         match self {
-            TK::Caret => Some(),
+            TK::Caret => Some(69),
             _ => None,
         }
     }
@@ -93,7 +98,7 @@ impl Parser<'_> {
         loop {
             let op = if self.at_any(EXPR_TERMINATORS) {
                 break;
-            } else if self.at_any(BIN_OPS) || self.at_any(TERM_TOKENS) {
+            } else if self.at_any(BIN_OPS) || self.at_any(POSTFIX_OPS) || self.at_any(TERM_TOKENS) {
                 self.peek()
             } else {
                 let token = self.next_token().unwrap();
@@ -104,6 +109,7 @@ impl Parser<'_> {
             };
 
             if let Some(left_bp) = op.postfix_bp() {
+                dbg!("hi");
                 if left_bp < power {
                     break;
                 }
@@ -459,6 +465,7 @@ impl From<TK> for UnOp {
     fn from(kind: TK) -> Self {
         match kind {
             TK::Ref => Self::Ref,
+            TK::Caret => Self::Deref,
             TK::Not => Self::Not,
             TK::Sub => Self::INegate,
             TK::FSub => Self::FNegate,

@@ -1,7 +1,8 @@
 fun main() do
     fun incr(x : Int) : Int = x + 1;
     fun decr(x : Int) : Int = x - 1;
-    let id : Fun[Int] -> Int = compose incr decr;
+    (* let id : Fun[Int] -> Int = compose incr decr; *)
+    let id = compose incr decr;
     id 123 |> print_int;
 end
 

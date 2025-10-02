@@ -129,19 +129,25 @@ impl Engine {
         span: Span,
         expected: Spanned<Type>,
     ) -> InferResult<TypedSpanExpr> {
-        let value_type = self.fresh_var();
-        let ty = match op.node {
-            UnOp::Ref => Type::Ref(Box::new(value_type.clone())),
-            UnOp::Not => Type::Bool,
-            UnOp::INegate => Type::Int,
-            UnOp::FNegate => Type::Float,
+        let (operand_type, out_type) = match op.node {
+            UnOp::Ref => {
+                let operand_type = self.fresh_var();
+                (operand_type.clone(), Type::Ref(Box::new(operand_type)))
+            }
+            UnOp::Deref => {
+                let out_type = self.fresh_var();
+                (Type::Ref(Box::new(out_type.clone())), out_type)
+            }
+            UnOp::Not => (Type::Bool, Type::Bool),
+            UnOp::INegate => (Type::Int, Type::Int),
+            UnOp::FNegate => (Type::Float, Type::Float),
         };
-        let new_value = self.infer_expr(value, spanned! {expected.span, value_type})?;
+        let new_value = self.infer_expr(value, spanned! {expected.span, operand_type})?;
         self.constraints.push(Constraint::Equality {
             expected: expected.node,
             expected_span: expected.span,
-            got: ty.clone(),
-            got_span: span,
+            got: out_type.clone(),
+            got_span: op.span,
         });
         Ok(spanned! {
             span,
@@ -150,7 +156,7 @@ impl Engine {
                     op,
                     value: new_value
                 }),
-                ty
+                out_type
             ))
         })
     }

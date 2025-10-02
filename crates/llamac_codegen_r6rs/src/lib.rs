@@ -18,6 +18,7 @@ const SCM_PRELUDE: &[u8] = br#"#!r6rs
 (import (rnrs))
 
 (define (ref x) x)
+(define (deref x) x) ; ref and deref are purely for debuggability
 (define (noteq a b) (not (equal? a b)))
 (define (fnpipe x f) (f x))
 (define (snoc l a) `(,l . ,a))
@@ -91,6 +92,7 @@ fn compile_expr<W: Write>(writer: &mut W, expr: &InnerExpr) -> std::io::Result<(
             writer.write_all(b"(")?;
             writer.write_all(match op.node {
                 UnOp::Ref => b"ref ",
+                UnOp::Deref => b"deref ",
                 UnOp::Not => b"not ",
                 UnOp::INegate | UnOp::FNegate => b"- ",
             })?;

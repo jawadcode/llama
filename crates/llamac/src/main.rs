@@ -74,7 +74,7 @@ fn main() {
 
     engine.solve_constraints().unwrap();
     let typed_source_file = engine.subst_source_file(typed_source_file);
-
+    println!("{}", typed_source_file.clone());
     if config.only_scheme {
         let out_file_path = match config.output {
             OutLoc::File(file) => file,
@@ -82,7 +82,8 @@ fn main() {
                 .join(config.input.file_stem().unwrap())
                 .with_extension("scm"),
         };
-        let mut out_file = File::create(out_file_path).unwrap();
+        let mut out_file =
+            File::create(out_file_path).expect("Output file or directory does not exist");
         compile_file(&mut out_file, typed_source_file).unwrap();
     } else {
         let (scm_file_path, exe_file_path) = match config.output {
