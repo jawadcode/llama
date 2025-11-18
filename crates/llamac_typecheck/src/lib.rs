@@ -273,15 +273,21 @@ impl Engine {
     /// Applies the substitution to `ty`
     fn subst_ty(&self, ty: Type) -> Type {
         match ty {
+            ty @ Type::Unit
+            | ty @ Type::Bool
+            | ty @ Type::Int
+            | ty @ Type::Float
+            | ty @ Type::String => ty,
             Type::Var(id) if self.substitution[id] != Type::Var(id) => {
                 self.subst_ty(self.substitution[id].clone())
             }
+            Type::Var(id) => Type::Var(id),
             Type::Fun { params, ret_ty } => Type::Fun {
                 params: Types(params.0.into_iter().map(|ty| self.subst_ty(ty)).collect()),
                 ret_ty: Box::new(self.subst_ty(*ret_ty)),
             },
             Type::List(ty) => Type::List(Box::new(self.subst_ty(*ty))),
-            ty => ty,
+            Type::Ref(ty) => Type::Ref(Box::new(self.subst_ty(*ty))),
         }
     }
 

@@ -1,0 +1,5 @@
+fun main() do
+	NUMBERS |> print_list_ints
+end
+
+const NUMBERS: List[Int] = [0, 1, 2, 3, 4]

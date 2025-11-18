@@ -60,6 +60,16 @@ fn main() {
                 }
             },
         ),
+        (
+            Ident::new("print_list_ints"),
+            spanned! {
+                0..0,
+                Type::Fun {
+                    params: Types(vec![Type::List(Box::new(Type::Int))]),
+                    ret_ty: Box::new(Type::Unit)
+                }
+            },
+        ),
     ];
 
     let mut engine = InferEngine::new(init_ctx.into_iter().collect::<HashMap<_, _>>());
@@ -74,7 +84,8 @@ fn main() {
 
     engine.solve_constraints().unwrap();
     let typed_source_file = engine.subst_source_file(typed_source_file);
-    println!("{}", typed_source_file.clone());
+    println!("\nTyped AST:\n{typed_source_file}");
+
     if config.only_scheme {
         let out_file_path = match config.output {
             OutLoc::File(file) => file,

@@ -142,13 +142,14 @@ impl Engine {
             UnOp::INegate => (Type::Int, Type::Int),
             UnOp::FNegate => (Type::Float, Type::Float),
         };
-        let new_value = self.infer_expr(value, spanned! {expected.span, operand_type})?;
+        let new_value = self.infer_expr(value, spanned! {expected.span, operand_type.clone()})?;
         self.constraints.push(Constraint::Equality {
-            expected: expected.node,
+            expected: expected.node.clone(),
             expected_span: expected.span,
             got: out_type.clone(),
             got_span: op.span,
         });
+
         Ok(spanned! {
             span,
             Box::new(TypedExpr(

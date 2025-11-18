@@ -82,7 +82,7 @@ fn compile_expr<W: Write>(writer: &mut W, expr: &InnerExpr) -> std::io::Result<(
         InnerExpr::Literal(literal) => compile_literal(writer, literal),
         InnerExpr::List(TypedList(list)) => {
             writer.write_all(b"(list")?;
-            for item in list {
+            for item in list.iter().rev() {
                 writer.write_all(b" ")?;
                 compile_expr(writer, &item.node.0)?;
             }

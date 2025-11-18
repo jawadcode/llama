@@ -109,7 +109,6 @@ impl Parser<'_> {
             };
 
             if let Some(left_bp) = op.postfix_bp() {
-                dbg!("hi");
                 if left_bp < power {
                     break;
                 }
@@ -219,7 +218,9 @@ impl Parser<'_> {
         while !self.at(TK::RSquare) {
             let item = self.parse_expr()?;
             list.push(item);
-            if !self.at(TK::Comma) {
+            if self.at(TK::Comma) {
+                self.next_token().unwrap();
+            } else {
                 break;
             }
         }
