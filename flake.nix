@@ -116,10 +116,17 @@
         };
       };
 
-      devShells.default =
-        craneLib.devShell.override {
-          mkShell = pkgs.mkShell.override {stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.stdenv;};
-        } {
+      devShells.default = let
+        # Idk if this is the right way to be doing this but idc
+        devShell =
+          if pkgs.stdenv.targetPlatform.isDarwin
+          then craneLib.devShell
+          else
+            craneLib.devShell.override {
+              mkShell = pkgs.mkShell.override {stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.stdenv;};
+            };
+      in
+        devShell {
           checks = self.checks.${system};
           packages = [pkgs.taplo];
         };
